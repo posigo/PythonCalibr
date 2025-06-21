@@ -1,0 +1,49 @@
+1. POST /api/token (аутентификация)
+Нужен ли transaction.atomic?
+❌ Обычно — нет, потому что:
+
+Запрос не изменяет данные в БД (только проверка пароля и генерация токена).
+
+Запись в ActionHistory — это отдельная операция, и её потеря не критична.
+
+✅ Но если:
+
+Вы добавляете логику, которая меняет БД (например, счетчик попыток входа),
+
+Или запись в ActionHistory обязательна (например, для аудита),
+→ Тогда можно обернуть в atomic().
+
+Где применять?
+В сериализаторе (CustomTokenObtainPairSerializer.validate()):
+
+python
+from django.db import transaction
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        try:
+            with transaction.atomic():  # <-- Если нужно гарантированное сохранение истории
+                data = super().validate(attrs)
+                
+                if not self.user.profile.is_verified:
+                    ActionHistory.objects.create(  # Запись должна сохраниться, даже если дальше ошибка
+                        user=self.user,
+                        action_type='login_failed',
+                        description="Попытка входа неподтверждённого пользователя",
+                        ip_address=self.context['request'].META.get('REMOTE_ADDR')
+                    )
+                    raise serializers.ValidationError("Аккаунт не подтверждён")
+                
+                # Успешный вход
+                ActionHistory.objects.create(
+                    user=self.user,
+                    action_type='login',
+                    description="Успешный вход",
+                    ip_address=self.context['request'].META.get('REMOTE_ADDR')
+                )
+                
+                return data
+        except Exception as e:
+            # Логирование ошибки (если нужно)
+            raise
+

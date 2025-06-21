@@ -1,0 +1,1575 @@
+1.  AuthViewSet (/auth/)
+    1.1. POST
+        1.1.1   Регистрация пользователя
+            URL: /auth/register/
+            Body: {username, password, password_confirm, first_name}        
+            Ответ: 201 Created с деталями пользователя
+
+        1.1.2   Выход из системы (инвалидация токена)
+            URL: /auth/logout/
+            Body: {refresh}                    
+            Ответ: 205 Reset Content
+
+        1.1.3. Сброс пароля (инициирование)
+            URL: /auth/password_reset/
+            Body: {email}
+            Ответ: 200 OK
+
+        1.1.4. Подтверждение сброса пароля
+            URL: /auth/password_reset_confirm/
+            Body: {new_password, token, uid}
+            Ответ: 200 OK
+
+2.  UserViewSet (/users/)
+    2.1.    GET
+        2.1.1.  Список пользователей
+            URL: /users/
+            Ответ: 200 OK со списком пользователей
+
+        2.1.2.   Информация о текущем пользователе
+            URL: /users/me/
+            Ответ: 200 OK с данными пользователя
+
+        2.1.3.   Подтвержденные пользователи
+            URL: /users/verifiedusers/
+            Ответ: 200 OK со списком подтвержденных пользователей
+
+        2.1.4.   Неподтвержденные пользователи
+            URL: /users/unverifiedusers/
+            Ответ: 200 OK со списком неподтвержденных пользователей
+
+        2.1.5.  Детали пользователя
+            URL: /users/{id}/
+            Ответ: 200 OK с данными пользователя
+
+        2.2.    POST
+            2.2.1.  Создание пользователя
+                URL: /users/
+                Body: {username, password, first_name, email, group_id}
+                Ответ: 201 Created с деталями пользователя
+
+            2.2.2.  Назначение группы пользователю
+                URL: /users/{id}/assign_group/
+                Body: {group}
+                Ответ: 200 OK с деталями изменения
+
+            2.2.3.  Изменение группы пользователя
+                URL: /users/{id}/change_group/
+                Body: {new_group}
+                Ответ: 200 OK с деталями изменения
+    2.3.    PUT/PATCH
+        2.3.1   Обновление данных пользователя
+            URL: /users/{id}/
+            Body: Частичные/полные данные пользователя
+            Ответ: 200 OK с обновленными данными
+
+        2.3.2.  Обновление данных текущего пользователя
+            URL: /users/me/
+            Body: Частичные/полные данные
+            Ответ: 200 OK с обновленными данными
+
+    2.4.    DELETE
+        2.4.1.  Удаление пользователя
+            URL: /users/{id}/
+            Ответ: 204 No Content
+
+        2.4.2.  Удаление текущего пользователя
+            URL: /users/me/
+            Ответ: 204 No Content
+
+3.  GroupViewSet (/groups/)
+    3.1.    GET
+        3.1.1.  Список групп
+            URL: /groups/
+            Ответ: 200 OK со списком групп
+            
+        3.1.2.  Детали группы
+            URL: /groups/{id}/
+            Ответ: 200 OK с данными группы
+
+4.  NotificationViewSet (/notifications/)
+    4.1.    GET
+        4.1.1.  Список уведомлений
+            URL: /notifications/
+            Ответ: 200 OK со списком уведомлений
+
+        4.1.2.  Детали уведомления
+            URL: /notifications/{id}/
+            Ответ: 200 OK с данными уведомления
+
+    4.2.    POST
+        4.2.1.  Создание уведомления
+            URL: /notifications/
+            Body: {notification_type, recipient, message}
+            Ответ: 201 Created с деталями уведомления
+
+    4.3.    PUT/PATCH
+        4.3.1.  Обновление уведомления
+            URL: /notifications/{id}/
+            Body: Частичные/полные данные уведомления
+            Ответ: 200 OK с обновленными данными
+
+    4.4.    DELETE
+        4.4.1.  Удаление уведомления
+            URL: /notifications/{id}/
+            Ответ: 204 No Content
+
+5.  ActionHistoryViewSet (/history/)
+    5.1.    GET
+        5.1.1.  Список действий
+            URL: /history/
+            Ответ: 200 OK со списком действий
+            Детали действия
+
+        5.1.2.  URL: /history/{id}/
+            Ответ: 200 OK с данными действия
+
+    5.2.    DELETE
+        5.2.1.  Удаление записи истории
+            URL: /history/{id}/
+            Ответ: 204 No Content
+
+6.  CustomTokenObtainPairView
+    6.1.    POST
+        6.1.1.  Получение JWT токенов
+            URL: /token/
+            Body: {username, password}
+            Ответ: 200 OK с токенами и данными пользователя
+
+7.  TokenRefreshView
+    7.1.    POST
+        7.2.    Обновление Access токена
+            URL: /token/refresh/
+            Body: {refresh}
+            Ответ: 200 OK с новым access токеном
+
+Все запросы, кроме аутентификации (/token/, /auth/register/, /auth/password_reset/), требуют заголовка Authorization: Bearer <access_token>. Ответы в формате JSON.
+
+
+
+
+1. API запросы с описанием headers, body и ожидаемых ответов
+    Аутентификация и регистрация
+        1.   Получение JWT токенов
+            Метод: POST
+            URL: /token/
+            Headers:
+                Content-Type: application/json
+            Body:
+                json
+                {
+                    "username": "string",
+                    "password": "string"
+                }        
+            Ответы:
+                200 OK:
+                json
+                {
+                    "refresh": "string",
+                    "access": "string",
+                    "user": {
+                        "id": 0,
+                        "username": "string",
+                        "groups": [{"id": 0, "name": "string"}],
+                        "profile": {
+                            "is_verified": true,
+                            "registration_date": "2023-01-01T00:00:00Z",
+                            "verification_date": "2023-01-01T00:00:00Z"
+                        }
+                    }
+                }
+        
+                400 Bad Request: Неверные учетные данные
+                403 Forbidden: Пользователь не подтвержден
+
+        2.  Обновление JWT токена
+            Метод: POST
+            URL: /token/refresh/
+            Headers:
+                Content-Type: application/json
+            Body:
+                json
+                {
+                    "refresh": "string"
+                }
+            Ответы:
+                200 OK:
+                json
+                {
+                    "access": "string"
+                }
+            
+                401 Unauthorized: Недействительный refresh токен
+
+        3.  Регистрация нового пользователя
+            Метод: POST
+            URL: /auth/register/
+            Headers:
+                Content-Type: application/json
+            Body:
+                json
+                {
+                    "username": "string",
+                    "password": "string",
+                    "password_confirm": "string",
+                    "first_name": "string"
+                }
+            Ответы:
+                201 Created:
+                json
+                {
+                    "detail": "Пользователь успешно зарегистрирован. Ожидайте подтверждения администратором.",
+                    "user_id": 0,
+                    "username": "string"
+                }
+
+                400 Bad Request: Ошибки валидации
+
+    Управление пользователями
+        4.  Получение списка пользователей
+            Метод: GET
+            URL: /users/
+            Headers:
+                Authorization: Bearer <access_token>
+            Ответы:
+                200 OK:
+                json
+                [       
+                    {
+                        "id": 0,
+                        "username": "string",
+                        "groups": [{"id": 0, "name": "string"}],
+                        "profile": {
+                            "is_verified": true,
+                            "registration_date": "2023-01-01T00:00:00Z",
+                            "verification_date": "2023-01-01T00:00:00Z"
+                        }
+                    }
+                ]
+
+                403 Forbidden: Нет прав доступа
+
+        5. Получение информации о текущем пользователе
+            Метод: GET
+            URL: /users/me/
+            Headers:
+                Authorization: Bearer <access_token>
+            Ответы:
+                200 OK:
+                json {
+                    "id": 0,
+                    "username": "string",
+                    "groups": [{"id": 0, "name": "string"}],
+                    "profile": {
+                        "is_verified": true,
+                        "registration_date": "2023-01-01T00:00:00Z",
+                        "verification_date": "2023-01-01T00:00:00Z"
+                    }
+                }
+                
+                401 Unauthorized: Не аутентифицирован
+
+        6. Обновление данных текущего пользователя
+            Метод: PUT/PATCH
+            URL: /users/me/
+            Headers:
+                Authorization: Bearer <access_token>
+                Content-Type: application/json
+            Body (PATCH - частичное обновление):
+                json
+                {
+                    "username": "string",
+                    "password": "string",
+                    "first_name": "string",
+                    "email": "string"
+                }
+            Ответы:
+                200 OK: Обновленные данные пользователя
+                400 Bad Request: Ошибки валидации
+                401 Unauthorized: Не аутентифицирован
+
+        7. Удаление текущего пользователя
+            Метод: DELETE
+            URL: /users/me/
+            Headers:
+                Authorization: Bearer <access_token>
+            Ответы:
+                204 No Content: Успешное удаление
+                401 Unauthorized: Не аутентифицирован
+
+    Управление уведомлениями
+        8. Получение списка уведомлений
+            Метод: GET
+            URL: /notifications/
+            Headers:
+                Authorization: Bearer <access_token>
+            Ответы:
+                200 OK:
+                json
+                [
+                    {
+                        "id": 0,
+                        "notification_type": "string",
+                        "sender": {"id": 0, "username": "string"},
+                        "recipient": {"id": 0, "username": "string"},
+                        "group_recipient": {"id": 0, "name": "string"},
+                        "date_created": "2023-01-01T00:00:00Z",
+                        "message": "string",
+                        "notification_profile": {
+                            "is_read": true,
+                            "is_active": true,
+                            "is_new": true
+                        }
+                    }
+                ]
+                401 Unauthorized: Не аутентифицирован
+
+    История действий
+        9. Получение истории действий
+            Метод: GET
+            URL: /history/
+            Headers:
+                Authorization: Bearer <access_token>
+            Ответы:
+                200 OK:
+                json
+                [
+                    {
+                        "id": 0,
+                        "user": {"id": 0, "username": "string"},
+                        "action_type": "string",
+                        "action_date": "2023-01-01T00:00:00Z",
+                        "description": "string",
+                        "ip_address": "string"
+                    }
+                ]
+                
+                403 Forbidden: Нет прав доступа
+
+2. API запросы для Postman
+Настройки окружения Postman
+Создайте переменные окружения:
+
+base_url: http://localhost:8000 (или ваш домен)
+
+access_token: будет установлен после аутентификации
+
+refresh_token: будет установлен после аутентификации
+
+Коллекция запросов
+1. Аутентификация
+Название: Login
+
+Метод: POST
+
+URL: {{base_url}}/token/
+
+Headers:
+
+Content-Type: application/json
+
+Body (raw, JSON):
+
+json
+{
+  "username": "your_username",
+  "password": "your_password"
+}
+Tests (для автоматического сохранения токенов):
+
+javascript
+pm.test("Status code is 200", function() {
+  pm.response.to.have.status(200);
+});
+
+const response = pm.response.json();
+pm.environment.set("access_token", response.access);
+pm.environment.set("refresh_token", response.refresh);
+2. Обновление токена
+Название: Refresh Token
+
+Метод: POST
+
+URL: {{base_url}}/token/refresh/
+
+Headers:
+
+Content-Type: application/json
+
+Body (raw, JSON):
+
+json
+{
+  "refresh": "{{refresh_token}}"
+}
+Tests:
+
+javascript
+pm.test("Status code is 200", function() {
+  pm.response.to.have.status(200);
+});
+
+const response = pm.response.json();
+pm.environment.set("access_token", response.access);
+3. Получение информации о текущем пользователе
+Название: Get My Profile
+
+Метод: GET
+
+URL: {{base_url}}/users/me/
+
+Headers:
+
+Authorization: Bearer {{access_token}}
+
+Tests:
+
+javascript
+pm.test("Status code is 200", function() {
+  pm.response.to.have.status(200);
+});
+4. Получение списка пользователей
+Название: Get Users List
+
+Метод: GET
+
+URL: {{base_url}}/users/
+
+Headers:
+
+Authorization: Bearer {{access_token}}
+
+Tests:
+
+javascript
+pm.test("Status code is 200", function() {
+  pm.response.to.have.status(200);
+});
+5. Создание уведомления
+Название: Create Notification
+
+Метод: POST
+
+URL: {{base_url}}/notifications/
+
+Headers:
+
+Authorization: Bearer {{access_token}}
+
+Content-Type: application/json
+
+Body (raw, JSON):
+
+json
+{
+  "notification_type": "user",
+  "recipient": 1,
+  "message": "Test notification"
+}
+Tests:
+
+javascript
+pm.test("Status code is 201", function() {
+  pm.response.to.have.status(201);
+});
+Особенности работы с API
+Аутентификация: Все запросы (кроме аутентификации и регистрации) требуют JWT токена в заголовке Authorization.
+
+Права доступа:
+
+Только суперпользователи и администраторы могут управлять пользователями
+
+Обычные пользователи могут видеть только свои данные
+
+Уведомления видны только тем, кому они адресованы
+
+Ошибки:
+
+401 Unauthorized: Недействительный или отсутствующий токен
+
+403 Forbidden: Нет прав для выполнения действия
+
+400 Bad Request: Неверные данные запроса
+
+Пагинация: Для списковых запросов реализована пагинация, можно указать параметры page и page_size.
+
+Теоретические аспекты реализации
+JWT Аутентификация
+Проект использует JWT (JSON Web Tokens) для аутентификации. Основные компоненты:
+
+Access Token: Короткоживущий токен (1 час) для доступа к API
+
+Refresh Token: Долгоживущий токен (1 день) для обновления access токена
+
+Blacklist: Механизм добавления токенов в черный список после выхода
+
+Права доступа
+Реализована сложная система разрешений:
+
+На основе групп: admins, extusers, users
+
+Кастомные permissions: CanEditUser, CanDeleteUser и др.
+
+Проверка подтверждения: IsVerifiedUser
+
+Сигналы Django
+Используются для автоматического выполнения действий при изменениях:
+
+Создание профиля при регистрации
+
+Логирование изменений групп
+
+Отправка уведомлений при подтверждении пользователя
+
+Оптимизация запросов
+Применены методы для уменьшения количества запросов к БД:
+
+select_related для связей один-к-одному
+
+prefetch_related для связей многие-ко-многим
+
+select_for_update для предотвращения race condition
+
+Этот API предоставляет полный набор функций для управления пользователями, группами, уведомлениями и историей действий с надежной системой аутентификации и контроля доступа.
+
+===========================================
+
+
+1. Список всех API запросов (текстовый формат)
+AuthViewSet:
+    POST /api/auth/register/
+        Headers:
+            Content-Type: application/json
+        Body:
+            {
+                "username": "string",
+                "password": "string",
+                "password_confirm": "string",
+                "first_name": "string"
+            }
+        Ответ:
+            201 Created:
+                {
+                    "detail": "Пользователь успешно зарегистрирован. Ожидайте подтверждения администратором.",
+                    "user_id": int,
+                    "username": "string"
+                }
+            400 Bad Request:
+                {"detail": "Ошибка валидации"}
+            500 Internal Server Error:
+                {"detail": "Ошибка при регистрации"}
+
+    POST /api/auth/logout/
+        Headers:
+            Authorization: Bearer <access_token>
+            Content-Type: application/json
+        Body:
+            {
+                "refresh": "string"
+            }
+        Ответ:
+            205 Reset Content:
+                {"detail": "Успешный выход из системы."}
+            400 Bad Request:
+                {"detail": "Ошибка при выходе"}
+
+    POST /api/auth/password_reset/
+        Headers:
+            Content-Type: application/json
+        Body:
+            {
+                "email": "string"
+            }
+        Ответ:
+            200 OK:
+                {"detail": "Инструкции по сбросу пароля отправлены на ваш email."}
+            404 Not Found:
+                {"detail": "Пользователь не найден"}
+
+    POST /api/auth/password_reset_confirm/
+        Headers:
+            Content-Type: application/json
+        Body:
+            {
+                "new_password": "string",
+                "token": "string",
+                "uid": "string"
+            }
+        Ответ:
+            200 OK:
+                {"detail": "Пароль успешно изменен."}
+            400 Bad Request:
+                {"detail": "Ссылка для сброса пароля недействительна."}
+
+UserViewSet:
+    GET /api/users/
+        Headers:
+            Authorization: Bearer <access_token>
+        Ответ:
+            200 OK:
+                [{
+                    "id": int,
+                    "username": "string",
+                    "email": "string",
+                    "groups": [{"id": int, "name": "string"}],
+                    "profile": {
+                        "is_verified": bool,
+                        "registration_date": "datetime",
+                        "verification_date": "datetime"
+                    }
+                }]
+            403 Forbidden:
+                {"detail": "У вас нет прав для просмотра списка пользователей"}
+
+    POST /api/users/
+        Headers:
+            Authorization: Bearer <access_token>
+            Content-Type: application/json
+        Body:
+            {
+                "username": "string",
+                "password": "string",
+                "first_name": "string",
+                "email": "string",
+                "group_id": int
+            }
+        Ответ:
+            201 Created:
+                {"detail": "Пользователь успешно создан"}
+            400 Bad Request:
+                {"detail": "Ошибка валидации"}
+            403 Forbidden:
+                {"detail": "У вас нет прав для создания пользователей"}
+
+    GET /api/users/{id}/
+        Headers:
+            Authorization: Bearer <access_token>
+        Ответ:
+            200 OK:
+                {
+                    "id": int,
+                    "username": "string",
+                    "email": "string",
+                    "groups": [{"id": int, "name": "string"}],
+                    "profile": {
+                        "is_verified": bool,
+                        "registration_date": "datetime",
+                        "verification_date": "datetime"
+                    }
+                }
+            403 Forbidden:
+                {"detail": "У вас нет прав для просмотра этого пользователя"}
+            404 Not Found:
+                {"detail": "Пользователь не найден"}
+
+    PUT /api/users/{id}/
+    PATCH /api/users/{id}/
+        Headers:
+            Authorization: Bearer <access_token>
+            Content-Type: application/json
+        Body:
+            {
+                "username": "string",
+                "password": "string",
+                "first_name": "string",
+                "email": "string",
+                "group_id": int,
+                "is_verified": bool
+            }
+        Ответ:
+            200 OK:
+                Обновленные данные пользователя
+            400 Bad Request:
+                {"detail": "Ошибка валидации"}
+            403 Forbidden:
+                {"detail": "У вас нет прав для редактирования этого пользователя"}
+
+    DELETE /api/users/{id}/
+        Headers:
+            Authorization: Bearer <access_token>
+        Ответ:
+            204 No Content
+            403 Forbidden:
+                {"detail": "У вас нет прав для удаления этого пользователя"}
+
+    GET /api/users/me/
+        Headers:
+            Authorization: Bearer <access_token>
+        Ответ:
+            200 OK:
+                Данные текущего пользователя
+            401 Unauthorized:
+                {"detail": "Требуется аутентификация"}
+
+    PUT /api/users/me/
+    PATCH /api/users/me/
+        Headers:
+            Authorization: Bearer <access_token>
+            Content-Type: application/json
+        Body:
+            {
+                "username": "string",
+                "password": "string",
+                "first_name": "string",
+                "email": "string"
+            }
+        Ответ:
+            200 OK:
+                Обновленные данные пользователя
+            400 Bad Request:
+                {"detail": "Ошибка валидации"}
+
+    DELETE /api/users/me/
+        Headers:
+            Authorization: Bearer <access_token>
+        Ответ:
+            204 No Content
+            500 Internal Server Error:
+                {"detail": "Ошибка при удалении"}
+
+    GET /api/users/verifiedusers/
+        Headers:
+            Authorization: Bearer <access_token>
+        Ответ:
+            200 OK:
+                Список подтвержденных пользователей
+            403 Forbidden:
+                {"detail": "У вас нет прав для просмотра этого списка"}
+
+    GET /api/users/unverifiedusers/
+        Headers:
+            Authorization: Bearer <access_token>
+        Ответ:
+            200 OK:
+                Список неподтвержденных пользователей
+            403 Forbidden:
+                {"detail": "У вас нет прав для просмотра этого списка"}
+
+    POST /api/users/{id}/assign_group/
+        Headers:
+            Authorization: Bearer <access_token>
+            Content-Type: application/json
+        Body:
+            {
+                "group": "string"
+            }
+        Ответ:
+            200 OK:
+                {
+                    "detail": "Группа назначена",
+                    "user_id": int,
+                    "group": "string",
+                    "is_verified": bool
+                }
+            400 Bad Request:
+                {"detail": "Ошибка валидации"}
+            403 Forbidden:
+                {"detail": "У вас нет прав для назначения группы"}
+
+    POST /api/users/{id}/change_group/
+        Headers:
+            Authorization: Bearer <access_token>
+            Content-Type: application/json
+        Body:
+            {
+                "new_group": "string"
+            }
+        Ответ:
+            200 OK:
+                {
+                    "detail": "Группа изменена",
+                    "user_id": int,
+                    "new_group": "string"
+                }
+            400 Bad Request:
+                {"detail": "Ошибка валидации"}
+            403 Forbidden:
+                {"detail": "У вас нет прав для изменения группы"}
+
+GroupViewSet:
+    GET /api/groups/
+        Headers:
+            Authorization: Bearer <access_token>
+        Ответ:
+            200 OK:
+                [{
+                    "id": int,
+                    "name": "string"
+                }]
+            401 Unauthorized:
+                {"detail": "Требуется аутентификация"}
+
+    GET /api/groups/{id}/
+        Headers:
+            Authorization: Bearer <access_token>
+        Ответ:
+            200 OK:
+                {
+                    "id": int,
+                    "name": "string"
+                }
+            401 Unauthorized:
+                {"detail": "Требуется аутентификация"}
+            404 Not Found:
+                {"detail": "Группа не найдена"}
+
+NotificationViewSet:
+    GET /api/notifications/
+        Headers:
+            Authorization: Bearer <access_token>
+        Ответ:
+            200 OK:
+                [{
+                    "id": int,
+                    "notification_type": "string",
+                    "sender": int,
+                    "recipient": int,
+                    "group_recipient": int,
+                    "date_created": "datetime",
+                    "message": "string",
+                    "notification_profile": {
+                        "is_read": bool,
+                        "is_active": bool,
+                        "is_new": bool
+                    }
+                }]
+            401 Unauthorized:
+                {"detail": "Требуется аутентификация"}
+
+    POST /api/notifications/
+        Headers:
+            Authorization: Bearer <access_token>
+            Content-Type: application/json
+        Body:
+            {
+                "notification_type": "string",
+                "recipient": int,
+                "group_recipient": int,
+                "message": "string"
+            }
+        Ответ:
+            201 Created:
+                Созданное уведомление
+            400 Bad Request:
+                {"detail": "Ошибка валидации"}
+            403 Forbidden:
+                {"detail": "У вас нет прав для создания уведомлений"}
+
+    GET /api/notifications/{id}/
+        Headers:
+            Authorization: Bearer <access_token>
+        Ответ:
+            200 OK:
+                Данные уведомления
+            403 Forbidden:
+                {"detail": "У вас нет прав для просмотра этого уведомления"}
+            404 Not Found:
+                {"detail": "Уведомление не найдено"}
+
+    DELETE /api/notifications/{id}/
+        Headers:
+            Authorization: Bearer <access_token>
+        Ответ:
+            204 No Content
+            403 Forbidden:
+                {"detail": "У вас нет прав для удаления уведомлений"}
+
+ActionHistoryViewSet:
+    GET /api/history/
+        Headers:
+            Authorization: Bearer <access_token>
+        Ответ:
+            200 OK:
+                [{
+                    "id": int,
+                    "user": {
+                        "id": int,
+                        "username": "string",
+                        "email": "string",
+                        "groups": [{"id": int, "name": "string"}],
+                        "profile": {
+                            "is_verified": bool,
+                            "registration_date": "datetime",
+                            "verification_date": "datetime"
+                        }
+                    },
+                    "action_type": "string",
+                    "action_date": "datetime",
+                    "description": "string",
+                    "ip_address": "string"
+                }]
+            401 Unauthorized:
+                {"detail": "Требуется аутентификация"}
+            403 Forbidden:
+                {"detail": "У вас нет прав для просмотра истории"}
+
+    GET /api/history/{id}/
+        Headers:
+            Authorization: Bearer <access_token>
+        Ответ:
+            200 OK:
+                Данные записи истории
+            403 Forbidden:
+                {"detail": "У вас нет прав для просмотра этой записи"}
+            404 Not Found:
+                {"detail": "Запись истории не найдена"}
+
+Token Endpoints:
+    POST /api/token/
+        Headers:
+            Content-Type: application/json
+        Body:
+            {
+                "username": "string",
+                "password": "string"
+            }
+        Ответ:
+            200 OK:
+                {
+                    "refresh": "string",
+                    "access": "string",
+                    "user": {
+                        "id": int,
+                        "username": "string",
+                        "email": "string",
+                        "groups": [{"id": int, "name": "string"}],
+                        "profile": {
+                            "is_verified": bool,
+                            "registration_date": "datetime",
+                            "verification_date": "datetime"
+                        }
+                    }
+                }
+            400 Bad Request:
+                {"detail": "Некорректные учетные данные"}
+            403 Forbidden:
+                {"detail": "Вас не подтвердили администраторы"}
+
+    POST /api/token/refresh/
+        Headers:
+            Content-Type: application/json
+        Body:
+            {
+                "refresh": "string"
+            }
+        Ответ:
+            200 OK:
+                {
+                    "access": "string"
+                }
+            400 Bad Request:
+                {"detail": "Токен недействителен или просрочен"}
+
+2. Список API запросов для Postman
+==========================================
+AuthViewSet
+==========================================
+
+[POST] /api/auth/register/
+    ● Headers:
+        ○ Content-Type: application/json
+    ● Body:
+        {
+            "username": "string",
+            "password": "string",
+            "password_confirm": "string",
+            "first_name": "string"
+        }
+    ● Responses:
+        ✓ 201 Created:
+            {
+                "detail": "Пользователь успешно зарегистрирован. Ожидайте подтверждения администратором.",
+                "user_id": int,
+                "username": "string"
+            }
+        ✗ 400 Bad Request:
+            {"detail": "Ошибка валидации"}
+        ✗ 500 Internal Server Error:
+            {"detail": "Ошибка при регистрации"}
+
+[POST] /api/auth/logout/
+    ● Headers:
+        ○ Authorization: Bearer <access_token>
+        ○ Content-Type: application/json
+    ● Body:
+        {
+            "refresh": "string"
+        }
+    ● Responses:
+        ✓ 205 Reset Content:
+            {"detail": "Успешный выход из системы."}
+        ✗ 400 Bad Request:
+            {"detail": "Ошибка при выходе"}
+
+[POST] /api/auth/password_reset/
+    ● Headers:
+        ○ Content-Type: application/json
+    ● Body:
+        {
+            "email": "string"
+        }
+    ● Responses:
+        ✓ 200 OK:
+            {"detail": "Инструкции по сбросу пароля отправлены на ваш email."}
+        ✗ 404 Not Found:
+            {"detail": "Пользователь не найден"}
+
+[POST] /api/auth/password_reset_confirm/
+    ● Headers:
+        ○ Content-Type: application/json
+    ● Body:
+        {
+            "new_password": "string",
+            "token": "string",
+            "uid": "string"
+        }
+    ● Responses:
+        ✓ 200 OK:
+            {"detail": "Пароль успешно изменен."}
+        ✗ 400 Bad Request:
+            {"detail": "Ссылка для сброса пароля недействительна."}
+
+==========================================
+UserViewSet
+==========================================
+
+[GET] /api/users/
+    ● Headers:
+        ○ Authorization: Bearer <access_token>
+    ● Responses:
+        ✓ 200 OK:
+            [
+                {
+                    "id": int,
+                    "username": "string",
+                    "email": "string",
+                    "groups": [
+                        {
+                            "id": int, 
+                            "name": "string"
+                        }
+                    ],
+                    "profile": {
+                        "is_verified": bool,
+                        "registration_date": "datetime",
+                        "verification_date": "datetime"
+                    }
+                }
+            ]
+        ✗ 403 Forbidden:
+            {"detail": "У вас нет прав для просмотра списка пользователей"}
+
+[POST] /api/users/
+    ● Headers:
+        ○ Authorization: Bearer <access_token>
+        ○ Content-Type: application/json
+    ● Body:
+        {
+            "username": "string",
+            "password": "string",
+            "first_name": "string",
+            "email": "string",
+            "group_id": int
+        }
+    ● Responses:
+        ✓ 201 Created:
+            {"detail": "Пользователь успешно создан"}
+        ✗ 400 Bad Request:
+            {"detail": "Ошибка валидации"}
+        ✗ 403 Forbidden:
+            {"detail": "У вас нет прав для создания пользователей"}
+
+[GET] /api/users/{id}/
+    ● Headers:
+        ○ Authorization: Bearer <access_token>
+    ● Responses:
+        ✓ 200 OK:
+            {
+                "id": int,
+                "username": "string",
+                "email": "string",
+                "groups": [
+                    {
+                        "id": int, 
+                        "name": "string"
+                    }
+                ],
+                "profile": {
+                    "is_verified": bool,
+                    "registration_date": "datetime",
+                    "verification_date": "datetime"
+                }
+            }
+        ✗ 403 Forbidden:
+            {"detail": "У вас нет прав для просмотра этого пользователя"}
+        ✗ 404 Not Found:
+            {"detail": "Пользователь не найден"}
+
+[PUT] /api/users/{id}/
+[PATCH] /api/users/{id}/
+    ● Headers:
+        ○ Authorization: Bearer <access_token>
+        ○ Content-Type: application/json
+    ● Body:
+        {
+            "username": "string",
+            "password": "string",
+            "first_name": "string",
+            "email": "string",
+            "group_id": int,
+            "is_verified": bool
+        }
+    ● Responses:
+        ✓ 200 OK:
+            Обновленные данные пользователя
+        ✗ 400 Bad Request:
+            {"detail": "Ошибка валидации"}
+        ✗ 403 Forbidden:
+            {"detail": "У вас нет прав для редактирования этого пользователя"}
+
+[DELETE] /api/users/{id}/
+    ● Headers:
+        ○ Authorization: Bearer <access_token>
+    ● Responses:
+        ✓ 204 No Content
+        ✗ 403 Forbidden:
+            {"detail": "У вас нет прав для удаления этого пользователя"}
+
+[GET] /api/users/me/
+    ● Headers:
+        ○ Authorization: Bearer <access_token>
+    ● Responses:
+        ✓ 200 OK:
+            Данные текущего пользователя
+        ✗ 401 Unauthorized:
+            {"detail": "Требуется аутентификация"}
+
+[PUT] /api/users/me/
+[PATCH] /api/users/me/
+    ● Headers:
+        ○ Authorization: Bearer <access_token>
+        ○ Content-Type: application/json
+    ● Body:
+        {
+            "username": "string",
+            "password": "string",
+            "first_name": "string",
+            "email": "string"
+        }
+    ● Responses:
+        ✓ 200 OK:
+            Обновленные данные пользователя
+        ✗ 400 Bad Request:
+            {"detail": "Ошибка валидации"}
+
+[DELETE] /api/users/me/
+    ● Headers:
+        ○ Authorization: Bearer <access_token>
+    ● Responses:
+        ✓ 204 No Content
+        ✗ 500 Internal Server Error:
+            {"detail": "Ошибка при удалении"}
+
+[GET] /api/users/verifiedusers/
+    ● Headers:
+        ○ Authorization: Bearer <access_token>
+    ● Responses:
+        ✓ 200 OK:
+            Список подтвержденных пользователей
+        ✗ 403 Forbidden:
+            {"detail": "У вас нет прав для просмотра этого списка"}
+
+[GET] /api/users/unverifiedusers/
+    ● Headers:
+        ○ Authorization: Bearer <access_token>
+    ● Responses:
+        ✓ 200 OK:
+            Список неподтвержденных пользователей
+        ✗ 403 Forbidden:
+            {"detail": "У вас нет прав для просмотра этого списка"}
+
+[POST] /api/users/{id}/assign_group/
+    ● Headers:
+        ○ Authorization: Bearer <access_token>
+        ○ Content-Type: application/json
+    ● Body:
+        {
+            "group": "string"
+        }
+    ● Responses:
+        ✓ 200 OK:
+            {
+                "detail": "Группа назначена",
+                "user_id": int,
+                "group": "string",
+                "is_verified": bool
+            }
+        ✗ 400 Bad Request:
+            {"detail": "Ошибка валидации"}
+        ✗ 403 Forbidden:
+            {"detail": "У вас нет прав для назначения группы"}
+
+[POST] /api/users/{id}/change_group/
+    ● Headers:
+        ○ Authorization: Bearer <access_token>
+        ○ Content-Type: application/json
+    ● Body:
+        {
+            "new_group": "string"
+        }
+    ● Responses:
+        ✓ 200 OK:
+            {
+                "detail": "Группа изменена",
+                "user_id": int,
+                "new_group": "string"
+            }
+        ✗ 400 Bad Request:
+            {"detail": "Ошибка валидации"}
+        ✗ 403 Forbidden:
+            {"detail": "У вас нет прав для изменения группы"}
+
+==========================================
+GroupViewSet
+==========================================
+
+[GET] /api/groups/
+    ● Headers:
+        ○ Authorization: Bearer <access_token>
+    ● Responses:
+        ✓ 200 OK:
+            [
+                {
+                    "id": int,
+                    "name": "string"
+                }
+            ]
+        ✗ 401 Unauthorized:
+            {"detail": "Требуется аутентификация"}
+
+[GET] /api/groups/{id}/
+    ● Headers:
+        ○ Authorization: Bearer <access_token>
+    ● Responses:
+        ✓ 200 OK:
+            {
+                "id": int,
+                "name": "string"
+            }
+        ✗ 401 Unauthorized:
+            {"detail": "Требуется аутентификация"}
+        ✗ 404 Not Found:
+            {"detail": "Группа не найдена"}
+
+==========================================
+NotificationViewSet
+==========================================
+
+[GET] /api/notifications/
+    ● Headers:
+        ○ Authorization: Bearer <access_token>
+    ● Responses:
+        ✓ 200 OK:
+            [
+                {
+                    "id": int,
+                    "notification_type": "string",
+                    "sender": int,
+                    "recipient": int,
+                    "group_recipient": int,
+                    "date_created": "datetime",
+                    "message": "string",
+                    "notification_profile": {
+                        "is_read": bool,
+                        "is_active": bool,
+                        "is_new": bool
+                    }
+                }
+            ]
+        ✗ 401 Unauthorized:
+            {"detail": "Требуется аутентификация"}
+
+[POST] /api/notifications/
+    ● Headers:
+        ○ Authorization: Bearer <access_token>
+        ○ Content-Type: application/json
+    ● Body:
+        {
+            "notification_type": "string",
+            "recipient": int,
+            "group_recipient": int,
+            "message": "string"
+        }
+    ● Responses:
+        ✓ 201 Created:
+            Созданное уведомление
+        ✗ 400 Bad Request:
+            {"detail": "Ошибка валидации"}
+        ✗ 403 Forbidden:
+            {"detail": "У вас нет прав для создания уведомлений"}
+
+[GET] /api/notifications/{id}/
+    ● Headers:
+        ○ Authorization: Bearer <access_token>
+    ● Responses:
+        ✓ 200 OK:
+            Данные уведомления
+        ✗ 403 Forbidden:
+            {"detail": "У вас нет прав для просмотра этого уведомления"}
+        ✗ 404 Not Found:
+            {"detail": "Уведомление не найдено"}
+
+[DELETE] /api/notifications/{id}/
+    ● Headers:
+        ○ Authorization: Bearer <access_token>
+    ● Responses:
+        ✓ 204 No Content
+        ✗ 403 Forbidden:
+            {"detail": "У вас нет прав для удаления уведомлений"}
+
+==========================================
+ActionHistoryViewSet
+==========================================
+
+[GET] /api/history/
+    ● Headers:
+        ○ Authorization: Bearer <access_token>
+    ● Responses:
+        ✓ 200 OK:
+            [
+                {
+                    "id": int,
+                    "user": {
+                        "id": int,
+                        "username": "string",
+                        "email": "string",
+                        "groups": [
+                            {
+                                "id": int, 
+                                "name": "string"
+                            }
+                        ],
+                        "profile": {
+                            "is_verified": bool,
+                            "registration_date": "datetime",
+                            "verification_date": "datetime"
+                        }
+                    },
+                    "action_type": "string",
+                    "action_date": "datetime",
+                    "description": "string",
+                    "ip_address": "string"
+                }
+            ]
+        ✗ 401 Unauthorized:
+            {"detail": "Требуется аутентификация"}
+        ✗ 403 Forbidden:
+            {"detail": "У вас нет прав для просмотра истории"}
+
+[GET] /api/history/{id}/
+    ● Headers:
+        ○ Authorization: Bearer <access_token>
+    ● Responses:
+        ✓ 200 OK:
+            Данные записи истории
+        ✗ 403 Forbidden:
+            {"detail": "У вас нет прав для просмотра этой записи"}
+        ✗ 404 Not Found:
+            {"detail": "Запись истории не найдена"}
+
+==========================================
+Token Endpoints
+==========================================
+
+[POST] /api/token/
+    ● Headers:
+        ○ Content-Type: application/json
+    ● Body:
+        {
+            "username": "string",
+            "password": "string"
+        }
+    ● Responses:
+        ✓ 200 OK:
+            {
+                "refresh": "string",
+                "access": "string",
+                "user": {
+                    "id": int,
+                    "username": "string",
+                    "email": "string",
+                    "groups": [
+                        {
+                            "id": int, 
+                            "name": "string"
+                        }
+                    ],
+                    "profile": {
+                        "is_verified": bool,
+                        "registration_date": "datetime",
+                        "verification_date": "datetime"
+                    }
+                }
+            }
+        ✗ 400 Bad Request:
+            {"detail": "Некорректные учетные данные"}
+        ✗ 403 Forbidden:
+            {"detail": "Вас не подтвердили администраторы"}
+
+[POST] /api/token/refresh/
+    ● Headers:
+        ○ Content-Type: application/json
+    ● Body:
+        {
+            "refresh": "string"
+        }
+    ● Responses:
+        ✓ 200 OK:
+            {
+                "access": "string"
+            }
+        ✗ 400 Bad Request:
+            {"detail": "Токен недействителен или просрочен"}
+
+==========================================================================
+21.05.2025
+==========================================
+NotificationViewSet
+==========================================
+[GET] /api/notifications/
+    ● Список уведомлений с фильтрацией
+    ● Права: Авторизованные пользователи
+    ● Query-параметры:
+        ○ ?sender=<id> - фильтр по отправителю
+        ○ ?recipient=<id> - фильтр по получателю
+        ○ ?is_new=true/false - фильтр по новым уведомлениям
+        ○ ?is_active=true/false - фильтр по активности
+        ○ ?is_read=true/false - фильтр по прочитанности
+    ● Headers:
+        ○ Authorization: Bearer <token>
+        ○ Accept: application/json
+    ● Responses:
+        ○ 200 OK
+            json
+            {
+                "count": 10,
+                "next": null,
+                "previous": null,
+                "results": [
+                    {
+                        "id": 1,
+                        "notification_type": "user",
+                        "sender": 2,
+                        "recipient": 3,
+                        "message": "Test",
+                        "notification_profile": {
+                            "is_read": false,
+                            "is_active": true,
+                            "is_new": true
+                        }
+                    }
+                ]
+            }
+        ○ 403 Forbidden - Нет прав доступа
+[GET] /api/notifications/by_sender/
+    ● Уведомления отправителя
+    ● Права: Авторизованные пользователи
+    ● Headers:
+        ○ Authorization: Bearer <token>
+    ● Responses:
+        ○ 200 OK
+            json
+            {
+                "id": 1,
+                "notification_type": "user",
+                "sender": 2,
+                "recipient": 3,
+                "message": "Test message",
+                "notification_profile": {
+                    "is_read": true,  // Статус обновлен
+                    "is_active": false,
+                    "is_new": false
+                }
+            }           
+        ○ 404 Not Found: Уведомление не найдено.
+[GET] /api/notifications/by_recipient/
+    ● Уведомления получателя
+    ● Права: Авторизованные пользователи
+    ● Особенность: Автоматически помечает все полученные уведомления как прочитанные
+    ● Responses:
+[GET] /api/notifications/new_by_recipient/
+    ● Проверка новых уведомлений
+    ● Responses:
+        ○ JSON
+          {"has_new": true, "count": 3}
+[GET] /api/notifications/active_by_recipient/
+    ● Проверка активных уведомлений
+    ● Responses:
+        ○ json
+        {"has_active": false, "count": 0}
+[GET] /api/notifications/unread_by_recipient/
+    ● Непрочитанные уведомления
+    ● Responses:
+        ○ json
+        {"has_unread": true, "count": 2}
+[GET] /api/notifications/{id}/
+    ● Детали уведомления
+    ● Права: Владелец/Админ
+    ● Особенность: Автоматически помечает уведомление как прочитанное.
+    ● Responses:
+[GET] /api/notifications/{id}/mark_as_read/      
+    ● Пометка как прочитанного
+    ● 
+    ● Responses:
+        ○ Полные данные уведомления с обновленными статусами.
+[POST] /api/notifications/
+    ● Создание уведомления
+    ● Права: Авторизованные пользователи
+    ● Headers:
+        ○ Content-Type: application/json
+        ○ Authorization: Bearer <token>
+    ● Body:
+        ○ json
+            {
+                "notification_type": "user",
+                "recipient": 2,
+                "message": "Hello!"
+            }
+    ● Responses:
+        ○ 201 Created
+            json
+            {
+                "id": 15,
+                "sender": 1,
+                "recipient": 2,
+                "message": "Hello!",
+                "notification_profile": {
+                    "is_read": false,
+                    "is_active": true,
+                    "is_new": true
+                }
+            }
+        ○ 400 Bad Request - Ошибка валидации
+        ○ 403 Forbidden - Нет прав
+[PUT]
+[PATCH] /api/notifications/{id}/
+    ● Обновление уведомления
+    ● Права: Только суперпользователь
+    ● Header:
+    ● Body:
+        ○ json
+        {
+            "message": "Updated text",
+            "is_active": false
+        }
+    ● Responses:
+        ○ 200 OK
+        ○ 403 Forbidden - Нет прав
+        ○ 404 Not Found - Уведомление не найдено
+[DELETE] /api/notifications/{id}/
+    ● Удаление уведомления
+    ● Права: Только суперпользователь
+    Ответ:
+        ○ 204 No Content - Успешно удалено
+        ○ 403 Forbidden - Нет прав
+        ○ 404 Not Found - Уведомление не найдено
