@@ -1,0 +1,78 @@
+Python
+	вирутальное окружение
+		1.	Перейдите в папку проекта (где лежит manage.py)
+		2.	python -m venv venv (venv — название папки, где будут храниться файлы окружения (можно назвать иначе, например .venv).)
+		3.	Активируйте окружение 
+				bash: venv\Scripts\activate
+				PowerShell: .\venv\Scripts\activate
+		4.	pip install -r requirements.txt установка зависимостей
+		
+		Собирает список всех установленных пакетов:
+			pip freeze > requirements.txt
+			
+		Перенос Python-версии: /путь/к/python3.9 -m venv venv
+		
+		Через winpty (если Git Bash ругается на source):
+			winpty source venv/Scripts/activate
+			
+		PowerShell: Get-Command python
+		cmd: where python
+		Bash: which python
+		
+		Переменная окружения VIRTUAL_ENV
+			При активации виртуального окружения устанавливается переменная VIRTUAL_ENV. Проверить её можно так:
+			bash: echo $VIRTUAL_ENV
+			Если выводится путь к папке окружения (например, /путь/к/проекту/venv) — окружение активно.
+			Если вывод пустой — окружение не активировано.
+			
+		pip list -- список установленных пакет
+		
+		echo $VIRTUAL_ENV
+		
+		Проверить текущий Python (если окружение активно)
+			powershell: python -c "import sys; print(sys.executable)"
+		Проверить переменные окружения
+			powershell: $env:Path -split ';' | Select-String 'python'
+				Покажет, есть ли путь к venv\Scripts в переменной PATH (признак активного окружения).
+		Get-Command python	Основной путь к Python
+		Get-Command python -All).Path	Все версии Python в системе
+		python -c "import sys; print(sys.executable)"	Точный путь к текущему Python
+		$env:Path -split ';' | Select-String 'python'	Пути Python в переменной PATH
+		
+		
+		Скачайте все зависимости в виде .whl/.tar.gz файлов:
+			bash: pip download -r requirements.txt -d ./offline_packages
+			Скопируйте Скопируйте:  requirements.txt и Папку offline_packages (с .whl/.tar.gz файлами).
+			pip install --no-index --find-links=./offline_packages -r requirements.txt
+				Флаг --no-index запрещает искать пакеты в интернете.
+				--find-links=./offline_packages указывает на локальную папку с .whl.
+				
+				
+				
+		Для cmd:
+		Проверить активное окружение	echo %VIRTUAL_ENV%
+		Узнать путь к Python	where python
+		Проверить PATH	echo %PATH% | find "venv"
+		Деактивировать	deactivate
+
+				
+				
+				
+				
+				
+				
+				
+				
+				
+				
+				
+				
+				
+				
+				
+				
+				
+				
+				
+				
+	

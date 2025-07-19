@@ -1,0 +1,24 @@
+ Добавление django-ratelimit
+Что такое django-ratelimit?
+Это пакет для ограничения частоты запросов к API. Защищает от:
+
+DDoS-атак
+
+Брутфорса
+
+Злоупотребления API
+
+Установка:
+
+bash
+pip install django-ratelimit
+Пример использования в views.py:
+
+python
+from django_ratelimit.decorators import ratelimit
+from django.utils.decorators import method_decorator
+
+class AuthViewSet(viewsets.GenericViewSet):
+    @method_decorator(ratelimit(key='ip', rate='5/m', method='POST'))
+    def register(self, request):
+        # ... существующий код ...

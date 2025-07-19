@@ -1,0 +1,149 @@
+from django.db.models import Case, When, Value, IntegerField
+
+@action(detail=False, methods=['get'])
+def verifiedusers(self, request):
+    queryset = User.objects.filter(
+        Q(profile__is_verified=True) | Q(is_superuser=True)
+    ).exclude(
+        id=request.user.id
+    ).annotate(
+        custom_order=Case(
+            When(is_superuser=True, then=Value(1)),
+            default=Value(0),
+            output_field=IntegerField()
+        )
+    ).order_by('custom_order', 'username')
+    
+    return self.paginate_response(queryset)
+объяснить построчно весь код, и как после каждой строчки выглядят отбираемые данные?
+Вот подробное построчное объяснение кода с описанием состояния данных после каждой операции:
+
+python
+from django.db.models import Case, When, Value, IntegerField
+Базовый запрос всех пользователей:
+
+python
+queryset = User.objects.filter(
+    Q(profile__is_verified=True) | Q(is_superuser=True)
+)
+Данные после этой строки: Все пользователи, у которых либо:
+
+profile.is_verified = True (подтвержденные)
+
+is_superuser = True (администраторы)
+
+SQL-аналог:
+
+sql
+SELECT * FROM auth_user 
+LEFT JOIN user_profile ON auth_user.id = user_profile.user_id
+WHERE user_profile.is_verified = TRUE OR auth_user.is_superuser = TRUE
+Исключение текущего пользователя:
+
+python
+.exclude(
+    id=request.user.id
+)
+Данные после этой строки: Те же пользователи, но без текущего авторизованного пользователя (исключаем себя из списка)
+
+SQL-аналог:
+
+sql
+AND auth_user.id != {request.user.id}
+Аннотация для сортировки:
+
+python
+.annotate(
+    custom_order=Case(
+        When(is_superuser=True, then=Value(1)),
+        default=Value(0),
+        output_field=IntegerField()
+    )
+)
+Данные после этой строки: К каждому пользователю добавляется временное поле custom_order:
+
+1 для суперпользователей
+
+0 для обычных пользователей
+
+SQL-аналог:
+
+sql
+SELECT *,
+  CASE WHEN is_superuser = TRUE THEN 1 ELSE 0 END AS custom_order
+FROM ...
+Сортировка:
+
+python
+.order_by('custom_order', 'username')
+Данные после этой строки:
+
+Сначала идут обычные пользователи (custom_order=0), отсортированные по username
+
+Затем суперпользователи (custom_order=1), тоже отсортированные по username
+
+SQL-аналог:
+
+sql
+ORDER BY custom_order ASC, username ASC
+Пагинация и возврат результата:
+
+python
+return self.paginate_response(queryset)
+Что происходит:
+
+Запрос пока не выполнен (Django использует "ленивые" запросы)
+
+При пагинации будет выполнен SQL-запрос с LIMIT и OFFSET
+
+Например, для страницы 1 с 10 элементами:
+
+sql
+SELECT ... ORDER BY custom_order ASC, username ASC LIMIT 10 OFFSET 0
+Визуализация данных на каждом этапе (пример):
+
+Исходные данные в БД:
+
+| id | username | is_superuser | is_verified |
+|----|----------|--------------|-------------|
+| 1  | admin    | True         | True        |
+| 2  | user1    | False        | True        |
+| 3  | user2    | False        | False       |
+| 4  | super    | True         | False       |
+| 5  | current  | False        | True        | (текущий пользователь)
+После каждого этапа:
+
+После filter():
+
+Включаются: admin (super+verified), user1 (verified), super (super)
+
+После exclude():
+
+Исключается current (ID=5)
+
+Остаются: admin, user1, super
+
+После annotate():
+
+| username | custom_order |
+|----------|--------------|
+| admin    | 1            |
+| user1    | 0            |
+| super    | 1            |
+После order_by():
+
+| username | custom_order |
+|----------|--------------|
+| user1    | 0            | (обычные сначала)
+| admin    | 1            | (суперы в конце)
+| super    | 1            |
+Преимущества такого подхода:
+
+Вся сортировка выполняется на стороне БД
+
+Нет загрузки всех данных в память Python
+
+Правильно работает с пагинацией
+
+Оптимально для больших таблиц пользователей
+

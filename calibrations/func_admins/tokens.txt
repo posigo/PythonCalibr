@@ -1,0 +1,461 @@
+Где правильнее организовать :
+Сравнение user_id из токена с текущим пользователем
+
+Защита от использования чужого refresh token
+И как написать для этого код
+Оптимальное место для проверки принадлежности токена
+1. Где реализовать проверку:
+
+Лучшее место для этой проверки - кастомный middleware или permission класс, потому что:
+
+Middleware:
+
+Проверяет все запросы автоматически
+
+Централизованная логика проверки
+
+Работает до попадания в view
+
+Permission класс:
+
+Более гибкая интеграция с DRF
+
+Можно применять выборочно к эндпоинтам
+
+Четкая связь с системой прав доступа
+
+Для вашего случая лучше использовать permission класс, так как:
+
+Проверка нужна только для определенных эндпоинтов (logout, token refresh)
+
+Уже используется система permissions в проекте
+
+Легче тестировать и поддерживать
+
+Реализация через Permission класс
+Создаем новый permission в func_admins/permissions.py:
+
+python
+from rest_framework.permissions import BasePermission
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
+
+class IsTokenOwner(BasePermission):
+    """
+    Проверяет, что refresh token принадлежит текущему пользователю
+    """
+    message = 'Токен не принадлежит текущему пользователю'
+
+    def has_permission(self, request, view):
+        if request.method == 'POST' and view.action == 'logout':
+            refresh_token = request.data.get('refresh')
+            
+            if not refresh_token:
+                return False
+
+            try:
+                token = RefreshToken(refresh_token)
+                return token.payload.get('user_id') == request.user.id
+            except TokenError:
+                return False
+        
+        return True
+Обновляем метод logout в func_admins/views.py:
+
+python
+from .permissions import IsTokenOwner
+
+class AuthViewSet(viewsets.GenericViewSet):
+    @action(detail=False, 
+            methods=['post'], 
+            permission_classes=[IsAuthenticated, IsTokenOwner])  # Добавляем permission
+    def logout(self, request):
+        try:
+            with transaction.atomic():
+                refresh_token = request.data.get('refresh')
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+
+                ActionHistory.objects.create(
+                    user=request.user,
+                    action_type='logout',
+                    description=f"Пользователь {request.user.username} вышел из системы",
+                    ip_address=request.META.get('REMOTE_ADDR')
+                )
+
+                return Response(
+                    {'detail': 'Успешный выход из системы.'},
+                    status=status.HTTP_205_RESET_CONTENT
+                )
+
+        except Exception as e:
+            ActionHistory.objects.create(
+                user=request.user,
+                action_type='logout_failed',
+                description=f"Ошибка при выходе: {str(e)}",
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
+            return Response(
+                {'detail': 'Произошла ошибка при выходе из системы'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+Альтернативная реализация через Middleware
+Если хотите глобальную проверку для всех операций с токенами:
+
+Создаем middleware в calibrations/middleware.py:
+
+python
+from rest_framework_simplejwt.exceptions import InvalidToken
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.response import Response
+from rest_framework import status
+
+class TokenOwnershipMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # Проверяем только запросы к эндпоинтам с токенами
+        if request.path in ['/api/auth/logout/', '/api/token/refresh/']:
+            if request.method == 'POST' and 'refresh' in request.data:
+                try:
+                    token = RefreshToken(request.data['refresh'])
+                    if token.payload.get('user_id') != request.user.id:
+                        return Response(
+                            {'detail': 'Токен не принадлежит пользователю'},
+                            status=status.HTTP_403_FORBIDDEN
+                        )
+                except InvalidToken:
+                    return Response(
+                        {'detail': 'Недействительный токен'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+        return self.get_response(request)
+Добавляем в MIDDLEWARE в settings.py:
+
+python
+MIDDLEWARE = [
+    ...
+    'calibrations.middleware.TokenOwnershipMiddleware',
+    ...
+]
+Почему permission класс лучше для вашего случая:
+Более точный контроль - применяется только к нужным эндпоинтам
+
+Лучшая интеграция с DRF - работает с существующей системой прав
+
+Проще тестировать - можно легко мокировать в тестах
+
+Четкая ответственность - одна проверка = один permission класс
+
+Дополнительные улучшения безопасности:
+Добавьте проверку срока действия токена:
+
+python
+from datetime import datetime
+from rest_framework_simplejwt.exceptions import TokenError
+
+if datetime.fromtimestamp(token.payload['exp']) < datetime.now():
+    raise TokenError('Срок действия токена истек')
+Реализуйте принудительный выход со всех устройств:
+
+python
+def force_logout_all(user):
+    for token in OutstandingToken.objects.filter(user=user):
+        RefreshToken(token.token).blacklist()
+@action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def logout(self, request):
+        """
+        Выход из системы (инвалидация токена)
+        POST /api/auth/logout/
+        """
+        try:
+            with transaction.atomic():
+                # refresh_token = request.data['refresh']
+                refresh_token = request.data.get('refresh')
+                # 1. Проверка наличия токена
+                if not refresh_token:
+                    # raise Exception("Refresh token не предоставлен")
+                    return Response(
+                        {'detail': 'Refresh token обязателен для выхода из системы'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                # 2. Проверка формата токена
+                if not isinstance(refresh_token, str) or not refresh_token.strip():
+                    return Response(
+                        {'detail': 'Неверный формат refresh token'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                try:
+                    # 3. Валидация токена
+                    token = RefreshToken(refresh_token)
+
+                    # 4. Проверка, не заблокирован ли уже токен
+                    if BlacklistedToken.objects.filter(token__token=refresh_token).exists():
+                        return Response(
+                            {'detail': 'Данный токен уже недействителен'},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                    # 5. Проверка принадлежности токена пользователю
+                    user_id = token.payload.get('user_id')
+                    if user_id != request.user.id:
+                        return Response(
+                            {'detail': 'Токен не принадлежит текущему пользователю'},
+                            status=status.HTTP_403_FORBIDDEN
+                        )
+
+                    # 6. Блокировка токена
+                    token.blacklist()
+
+                    # Записываем в историю
+                    ActionHistory.objects.create(
+                        user=request.user,
+                        action_type='logout',
+                        description=f"Пользователь {request.user.username} вышел из системы",
+                        ip_address=request.META.get('REMOTE_ADDR')
+                    )
+
+                    return Response(
+                        {'detail': 'Успешный выход из системы.'},
+                        status=status.HTTP_205_RESET_CONTENT
+                    )
+                except TokenError as e:
+                    return Response(
+                        {'detail': f'Недействительный refresh token: {str(e)}'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+        except Exception as e:
+            ActionHistory.objects.create(  # Запись о неудачном выходе
+                user=request.user if request.user.is_authenticated else None,
+                action_type='logout',
+                description=f"Ошибка при выходе: {str(e)}",
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
+            return Response(
+                {'detail': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+Где правильнее организовать :
+Сравнение user_id из токена с текущим пользователем
+
+Защита от использования чужого refresh token
+И как написать для этого код
+Оптимальное место для проверки принадлежности токена
+Лучшее решение - вынести проверку в отдельный метод сервисного слоя, а затем использовать его и в permission классе, и в view. Вот как это правильно реализовать:
+
+Создаем сервис для работы с токенами (func_admins/services/token_service.py):
+
+python
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework import status
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+class TokenService:
+    @staticmethod
+    def validate_refresh_token(refresh_token: str, user: User) -> dict:
+        """
+        Валидация refresh token и проверка принадлежности пользователю
+        Возвращает словарь с результатами проверки:
+        {
+            'is_valid': bool,
+            'token': RefreshToken | None,
+            'error_message': str | None,
+            'status_code': int
+        }
+        """
+        # 1. Проверка наличия токена
+        if not refresh_token:
+            return {
+                'is_valid': False,
+                'error_message': 'Refresh token обязателен',
+                'status_code': status.HTTP_400_BAD_REQUEST
+            }
+
+        # 2. Проверка формата токена
+        if not isinstance(refresh_token, str) or not refresh_token.strip():
+            return {
+                'is_valid': False,
+                'error_message': 'Неверный формат refresh token',
+                'status_code': status.HTTP_400_BAD_REQUEST
+            }
+
+        try:
+            # 3. Валидация токена
+            token = RefreshToken(refresh_token)
+            
+            # 4. Проверка принадлежности токена пользователю
+            if token.payload.get('user_id') != user.id:
+                return {
+                    'is_valid': False,
+                    'error_message': 'Токен не принадлежит текущему пользователю',
+                    'status_code': status.HTTP_403_FORBIDDEN
+                }
+
+            return {
+                'is_valid': True,
+                'token': token,
+                'error_message': None,
+                'status_code': None
+            }
+
+        except TokenError as e:
+            return {
+                'is_valid': False,
+                'error_message': f'Недействительный refresh token: {str(e)}',
+                'status_code': status.HTTP_400_BAD_REQUEST
+            }
+Создаем permission класс (func_admins/permissions.py):
+
+python
+from .services.token_service import TokenService
+
+class IsValidRefreshTokenOwner(BasePermission):
+    """
+    Проверяет что refresh token валиден и принадлежит текущему пользователю
+    """
+    message = 'Недействительный токен или токен другого пользователя'
+
+    def has_permission(self, request, view):
+        if request.method == 'POST' and view.action == 'logout':
+            refresh_token = request.data.get('refresh')
+            validation_result = TokenService.validate_refresh_token(refresh_token, request.user)
+            
+            if not validation_result['is_valid']:
+                self.message = validation_result['error_message']
+            
+            return validation_result['is_valid']
+        return True
+Обновляем view (func_admins/views.py):
+
+python
+from .services.token_service import TokenService
+from .permissions import IsValidRefreshTokenOwner
+
+class AuthViewSet(viewsets.GenericViewSet):
+    @action(
+        detail=False,
+        methods=['post'],
+        permission_classes=[IsAuthenticated, IsValidRefreshTokenOwner]  # Добавляем permission
+    )
+    def logout(self, request):
+        try:
+            with transaction.atomic():
+                refresh_token = request.data.get('refresh')
+                
+                # Повторная проверка через сервис (для единообразия)
+                validation_result = TokenService.validate_refresh_token(refresh_token, request.user)
+                if not validation_result['is_valid']:
+                    return Response(
+                        {'detail': validation_result['error_message']},
+                        status=validation_result['status_code']
+                    )
+
+                # Блокировка токена
+                validation_result['token'].blacklist()
+
+                # Запись в историю
+                ActionHistory.objects.create(
+                    user=request.user,
+                    action_type='logout',
+                    description=f"Пользователь {request.user.username} вышел из системы",
+                    ip_address=request.META.get('REMOTE_ADDR')
+                )
+
+                return Response(
+                    {'detail': 'Успешный выход из системы.'},
+                    status=status.HTTP_205_RESET_CONTENT
+                )
+
+        except Exception as e:
+            ActionHistory.objects.create(
+                user=request.user,
+                action_type='logout_failed',
+                description=f"Ошибка при выходе: {str(e)}",
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
+            return Response(
+                {'detail': 'Произошла ошибка при выходе из системы'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+Почему это оптимальное решение:
+Соблюдение DRY:
+
+Логика проверки вынесена в один сервис
+
+Используется и в permission, и в view
+
+Гибкость:
+
+Можно легко добавить новые проверки
+
+Просто интегрировать в другие части системы
+
+Тестируемость:
+
+Сервис можно тестировать отдельно
+
+Мокировать в unit-тестах
+
+Безопасность:
+
+Централизованная обработка всех ошибок токена
+
+Четкое разделение ответственности
+
+Дополнительные улучшения:
+Добавьте кэширование проверки BlacklistedToken:
+
+python
+from django.core.cache import cache
+
+class TokenService:
+    @staticmethod
+    def is_token_blacklisted(token):
+        cache_key = f"blacklisted_token_{token}"
+        if cache.get(cache_key):
+            return True
+            
+        is_blacklisted = BlacklistedToken.objects.filter(token__token=token).exists()
+        cache.set(cache_key, is_blacklisted, timeout=300)  # Кэш на 5 минут
+        return is_blacklisted
+Добавьте проверку срока действия:
+
+python
+from datetime import datetime
+
+class TokenService:
+    @staticmethod
+    def validate_refresh_token(refresh_token: str, user: User) -> dict:
+        # ... предыдущий код ...
+        try:
+            token = RefreshToken(refresh_token)
+            
+            # Проверка срока действия
+            if datetime.fromtimestamp(token.payload['exp']) < datetime.now():
+                return {
+                    'is_valid': False,
+                    'error_message': 'Срок действия токена истек',
+                    'status_code': status.HTTP_400_BAD_REQUEST
+                }
+        # ... остальной код ...
+Добавьте логирование попыток использования невалидных токенов:
+
+python
+import logging
+logger = logging.getLogger(__name__')
+
+class TokenService:
+    @staticmethod
+    def validate_refresh_token(refresh_token: str, user: User) -> dict:
+        # ... предыдущий код ...
+        except TokenError as e:
+            logger.warning(f"Invalid token attempt by user {user.id}: {str(e)}")
+            return {
+                'is_valid': False,
+                'error_message': 'Недействительный токен',
+                'status_code': status.HTTP_400_BAD_REQUEST
+            }
