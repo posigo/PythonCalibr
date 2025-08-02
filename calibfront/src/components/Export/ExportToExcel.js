@@ -18,7 +18,8 @@ const ExcelExportButton = ({ calculation, uncertainty }) => {
 
   const handleExportTo = async () => {   
     try {
-      if (downloadLinkRef.current) {
+      // Очищаем предыдущую ссылку, если она существует и еще не удалена
+      if (downloadLinkRef.current && document.body.contains(downloadLinkRef.current)) {
         window.URL.revokeObjectURL(downloadLinkRef.current.href);
         document.body.removeChild(downloadLinkRef.current);
         downloadLinkRef.current = null;

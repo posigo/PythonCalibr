@@ -433,6 +433,20 @@ const CalculationUpsert = () => {
                       </div>
                     </div>
                     <div className='input-group align-items-center mb-3 py-1'>
+                      <span className='input-group-texts'><i className="bi bi-journal-text me-2 fs-4"></i></span>
+                      <div className="form-floating flex-grow-1">                                
+                        <input
+                          type="text"
+                          className="form-control"
+                          name="Method"
+                          value={calculation.Method || ''}
+                          onChange={handleChange}
+                          id="UpsertDevice"
+                        />
+                        <label className="form-label" htmlFor="Method">Метод</label>
+                      </div>
+                    </div>
+                    <div className='input-group align-items-center mb-3 py-1'>
                       <span className='input-group-texts'><i className="bi bi-droplet me-2 fs-4"></i></span>
                       <div className="form-floating flex-grow-1">
                         <input

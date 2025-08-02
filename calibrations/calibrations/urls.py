@@ -39,4 +39,5 @@ urlpatterns = [
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
     path('api/', include('calibr_calc.urls')),
     path('api/', include('func_admins.urls')),
+    path('api/', include('docum_user.urls')),
 ]

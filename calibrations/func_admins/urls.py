@@ -20,7 +20,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 
 
-router = DefaultRouter()
+# router = DefaultRouter()
 # router.register(r'register', RegisterViewSet, basename='register')
 # router.register(r'users', UserViewSet, basename='users')
 # router.register(r'groups', GroupViewSet, basename='groups')
@@ -30,7 +30,7 @@ router.register(r'auth', AuthViewSet, basename='auth')  # Регистрируе
 router.register(r'users', UserViewSet, basename='user')
 router.register(r'groups', GroupViewSet, basename='group')
 router.register(r'notifications', NotificationViewSet, basename='notification')
-router.register(r'history', ActionHistoryViewSet, basename='history')
+router.register(r'action-history', ActionHistoryViewSet, basename='action-history')
 
 
 # urlpatterns = [

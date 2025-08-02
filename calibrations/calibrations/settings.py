@@ -80,6 +80,7 @@ INSTALLED_APPS = [
     'drf_yasg',
     'corsheaders',                              # CORS
     'func_admins.apps.FuncAdminsConfig',        # Custom Admins
+    'docum_user.apps.DocumUserConfig',          # Documentations
 ]
 
 MIDDLEWARE = [
@@ -174,6 +175,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
+
+STATIC_ROOT = 'static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

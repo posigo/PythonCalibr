@@ -317,7 +317,7 @@ const AdminPanel2 = () => {
   };
 
   return (
-    <div className='container-fluid pt-2 mt-5'>
+    <div className='container-fluid pt-2 my-5'>
       <h2 className='text-center fw-bold text-primary'>{constTexts?.nav?.cabnt?.main || 'Административная панель'}</h2>
       <div>
       <ul className="nav nav-tabs mb-4 id='adminPanelTabs' role='tablist'">

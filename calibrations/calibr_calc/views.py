@@ -17,6 +17,7 @@ from . models import Calculations, Solutions, OpticalDensities
 from . serialisers import CalculationsSerializer, CalculationsUserListSerializer, SolutionsSerializer, OpticalDensitiesSerializer
 from . uncertainty_lc import get_uncertainty_linear_calibration
 from . permissions import IsSuperUser, IsAdmin, IsExtUser, IsUser
+from func_admins.models import ActionHistory
 
 # Create your views here.
 class CalculationsViewSet(viewsets.ModelViewSet):
@@ -40,6 +41,75 @@ class CalculationsViewSet(viewsets.ModelViewSet):
         if self.action == 'calculationsusers':
             return CalculationsUserListSerializer
         return super().get_serializer_class()
+
+    def perform_create(self, serializer):
+        calculation = serializer.save()
+        ActionHistory.objects.create(
+            user=self.request.user,
+            action_type='calculation_create',
+            description=(
+                f"Создан расчет #{calculation.id}: "
+                f"Компонент: {calculation.ComponentName}, "
+                f"Концентрация: {calculation.UpLimitConcSubstance}, "
+                f"Кол-во плотностей: {calculation.CountDensities}"
+            ),
+            ip_address=self.request.META.get('REMOTE_ADDR')
+        )
+
+    def perform_update(self, serializer):
+        old_instance = self.get_object()
+        old_data = {
+            'ComponentName': old_instance.ComponentName,
+            'UpLimitConcSubstance': old_instance.UpLimitConcSubstance,
+            'CountDensities': old_instance.CountDensities
+        }
+        
+        calculation = serializer.save()
+        new_data = {
+            'ComponentName': calculation.ComponentName,
+            'UpLimitConcSubstance': calculation.UpLimitConcSubstance,
+            'CountDensities': calculation.CountDensities
+        }
+        
+        changes = []
+        for field in ['ComponentName', 'UpLimitConcSubstance', 'CountDensities']:
+            if old_data[field] != new_data[field]:
+                changes.append(f"{field} изменен с '{old_data[field]}' на '{new_data[field]}'")
+        
+        if changes:
+            ActionHistory.objects.create(
+                user=self.request.user,
+                action_type='calculation_update',
+                description=(
+                    f"Изменен расчет #{calculation.id}: " + ", ".join(changes) + ". "
+                    f"Компонент: {calculation.ComponentName}, "
+                    f"Концентрация: {calculation.UpLimitConcSubstance}, "
+                    f"Кол-во плотностей: {calculation.CountDensities}"
+                ),
+                ip_address=self.request.META.get('REMOTE_ADDR')
+            )
+
+    def perform_destroy(self, instance):
+        calculation_data = {
+            'id': instance.id,
+            'ComponentName': instance.ComponentName,
+            'UpLimitConcSubstance': instance.UpLimitConcSubstance,
+            'CountDensities': instance.CountDensities
+        }
+        
+        instance.delete()
+        
+        ActionHistory.objects.create(
+            user=self.request.user,
+            action_type='calculation_delete',
+            description=(
+                f"Удален расчет #{calculation_data['id']}: "
+                f"Компонент: {calculation_data['ComponentName']}, "
+                f"Концентрация: {calculation_data['UpLimitConcSubstance']}, "
+                f"Кол-во плотностей: {calculation_data['CountDensities']}"
+            ),
+            ip_address=self.request.META.get('REMOTE_ADDR')
+        )
 
     @action(detail=False, methods=['get'])
     def calculationsusers(self, request):

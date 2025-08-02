@@ -15,6 +15,7 @@ const RegisterPage = () => {
     email: '',
     first_name: ''
   });
+  const [formCheck, setFormCheck] = useState(false);
   const [emailError, setEmailError] = useState('');
   const navigate = useNavigate();
 
@@ -24,6 +25,12 @@ const RegisterPage = () => {
       ...prev,
       [name]: value
     }));
+  };
+
+  const handleChangeCheck = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormCheck(checked)
+    ;
   };
 
   const handleEmailChange = (e) => {
@@ -72,15 +79,15 @@ const RegisterPage = () => {
   };
 
   return (
-    <div className="container mt-5 animate__animated animate__fadeIn">
+    <div className="container mt-5 pt-3 mb-5 pb-3 animate__animated animate__fadeIn">
       <div className="row justify-content-center">
         <div className="col-md-8 col-lg-6">
           <div className="card border-primary shadow-lg">
             <div className="card-header bg-primary text-white">
               <h3 className="text-center mb-0">
-                <i className="bi bi-pen-fill me-2"></i>                
+                {/* <i className="bi bi-pen-fill me-2"></i> */}
                 <i className="bi bi-person-plus-fill me-2"></i>
-                <i className="bi bi-person-fill-add"></i>
+                {/* <i className="bi bi-person-fill-add"></i> */}
                 Регистрация
               </h3>
             </div>
@@ -217,13 +224,42 @@ const RegisterPage = () => {
                       required
                       minLength="3"
                     />
-                  </div>                  
+                  </div>   
+                  {/* Checkbox для согласия с политикой */}
+                  <div className="mt-4 p-3 border border-primary rounded-3 bg-light">
+                    <div className="form-check d-flex align-items-center">
+                    {/* <div className='input-group form-check mt-3'>                     */}
+                      <input
+                        type="checkbox"
+                        // className="form-control form-control-lg border border-primary"
+                        className="form-check-input border-primary me-3"
+                        style={{
+                          width: '1.5em',
+                          height: '1.5em',
+                          minWidth: '1.5em',
+                          cursor: 'pointer'
+                        }}
+                        id="agreeToPolicy"
+                        name="agreeToPolicy"
+                        checked={formCheck}
+                        onChange={handleChangeCheck}
+                        // required                      
+                      />
+                      <label className="form-check-label ms-2 fs-6" style={{ cursor: 'pointer' }} htmlFor="agreeToPolicy">
+                        <small>Я согласен(а) с{' '}
+                        <Link to="/securitypolicy" className="text-primary" target="_blank">
+                          политикой безопасности и конфиденциальности
+                        </Link></small>
+                      </label>
+                    </div>                         
+                  </div>
                 </div>
                 <div className='d-grid mt-4'>
                   <button 
                     type='submit' 
                     // className="form-control form-control-lg btn btn-primary w-100"
                     className='btn btn-primary btn-lg rounded-pill shadow-sm animate__animated animate__pulse animate__infinite'
+                    disabled={!formCheck}
                   >
                     <i className="bi bi-person-plus me-2"></i>
                     Зарегистрироваться

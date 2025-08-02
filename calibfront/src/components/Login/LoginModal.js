@@ -5,7 +5,7 @@ import { login, getCurrentUser } from '../../services/api';
 import { useAuth } from '../../context/AuthContext'; 
 
 const LoginModal = () => {
-  const { auth, setAuth, showLoginModal, setShowLoginModal } = useAuth();
+  const { auth, setAuth, usrData, setUsrData, showLoginModal, setShowLoginModal } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -49,6 +49,7 @@ const LoginModal = () => {
       localStorage.setItem('access_token', response.data.access);
       localStorage.setItem('refresh_token', response.data.refresh);
       setAuth(true);      
+      setUsrData(usrData);
       toast.success('Вход выполнен успешно');
       setShowLoginModal(false);
       setPassword('');
@@ -85,13 +86,27 @@ const LoginModal = () => {
 
   return (
     <div 
-      className='modal fade show animate__animated animate__fadeIn' 
-      style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}
+      className='modal fade show d-block modal-dialog-scrollable animate__animated animate__fadeIn' 
+      // style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}
       tabIndex='-1'
-      onKeyDown={(e) => e.key === 'Escape' && !isLoading && setShowLoginModal(false)}
+      role='dialog'
+      aria-modal="true"   
+      onClick={() => {
+        if (!isLoading) {
+          setShowLoginModal(false);
+          setPassword('');
+          setUsername('');
+        }
+      }}
+      // onKeyDown={(e) => e.key === 'Escape' && !isLoading && setShowLoginModal(false)}
+      onKeyDown={(e) => { if (e.key === 'Escape' && !isLoading) { setShowLoginModal(false); }}}
     >
-      <div className='modal-dialog modal-dialog-centered'>
-        <div className="modal-content border-primary shadow-lg">
+      <div 
+        className='modal-dialog modal-dialog-centered' 
+        role="document" 
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-content border-primary shadow-lg mb-5">
           <div className="modal-header bg-primary text-while">
             <h5 className="modal-title text-center mb-0">
               <i className="bi bi-box-arrow-in-right me-2"></i>
@@ -111,7 +126,9 @@ const LoginModal = () => {
               aria-label="Close"
             ></button>
           </div>
-          <div className="modal-body">
+          <div className="modal-body" 
+              style={{ maxHeight: '70vh', overflowY: 'auto' }}
+          >
             {/* Сообщения об ошибках */}
             {errorMessage && (
               <div className='alert alert-danger d-flex align-items-center'>

@@ -415,8 +415,8 @@ class ActionHistorySerializer(serializers.ModelSerializer):
     
     class Meta:
         model = ActionHistory
-        fields = ('id', 'user', 'action_type', 'action_date', 'description', 'ip_address')
-        read_only_fields = fields
+        fields = '__all__'
+        read_only_fields = ('id', 'user', 'action_type', 'action_date', 'description', 'ip_address') # is_deleted — можно обновлять
 
 class PasswordResetSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)

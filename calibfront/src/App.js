@@ -17,6 +17,11 @@ import AdminPanel2 from './pages/AdminPanel/AdminPanel2';
 import RegisterPage from './pages/RegisterPage/RegisterPage';
 import ProfilePage from './pages/ProfilePage/ProfilePage';
 import NotificationsPage from './pages/NotificationsPage/NotificationsPage';
+import SecurityPolicyPage from './pages/SecurityPolicy/SecurityPolicyPage';
+import AsutpPage from './pages/InfoPage/AsutpPage';
+import AsutpContacts from './components/InfoPage/AsutpContacts';
+import BanSocNet from './components/InfoPage/BanSocNet';
+import HistoryPanel from './pages/HistoriesPage/HistoryPanel';
 
 function App() {    
   return (
@@ -41,6 +46,11 @@ function App() {
               <Route path='/profile' element={<ProfilePage />}/>
               <Route path='/register' element={<RegisterPage  />}/>
               <Route path='/notifications' element={<NotificationsPage  />}/>
+              <Route path='/securitypolicy' element={<SecurityPolicyPage  />}/>
+              <Route path='/asutpinfo' element={<AsutpPage  />}/>
+              <Route path='/asutpcontact' element={<AsutpContacts  />}/>
+              <Route path='/bacsocnet' element={<BanSocNet  />}/>
+              <Route path='/histories' element={<HistoryPanel  />}/>
             </Routes>                  
           </main>
           <Footer  />

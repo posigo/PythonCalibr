@@ -176,7 +176,7 @@ const Header = () => {
                     <li>
                     <Link 
                       className="dropdown-item" 
-                      to=""                        
+                      to="/histories"                        
                     >
                       {constTexts.nav.cabnt.sub.hist}
                     </Link>

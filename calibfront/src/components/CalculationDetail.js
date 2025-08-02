@@ -1,5 +1,5 @@
 import React, { useEffect, useState, } from 'react';
-import { getCalculation, deleteCalculation } from '../services/api';
+import { getCalculation, deleteCalculation, getUserNameList } from '../services/api';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Graph from './Graph';
 import DeleteConfirmation from './DeleteConfirmation'
@@ -30,6 +30,9 @@ const CalculationDetail = () => {
   const [isGroupUser, setIsGroupUser] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
 
+  const [nameUserCreate, setNameUserCreate] = useState('');
+  const [nameUserChange, setNameUserChange] = useState('');
+
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -37,6 +40,7 @@ const CalculationDetail = () => {
       console.log("usrData-CalcDetail->", usrData)
       const response = await getCalculation(id);
       setCalculation(response.data);
+      console.log("CalculationDetail-fetchCalculation-calculation->",response.data);
       setIsGroupUser(usrData?.groups?.includes('users'));
       if (response.data.ChangeOwner && 
         usrData?.groups?.includes('extusers') &&
@@ -44,6 +48,17 @@ const CalculationDetail = () => {
         setIsOwner(true)
       }
       //setIsDeleting(usrData?.groups?.includes('users'));
+      // Собираем уникальные ID (исключаем 0 и дубликаты)
+      const ids = [response.data["IdCreate"], response.data["IdChange"]].filter(id => id && id > 0);
+      if (ids.length !== 0) {
+        const responseUser = await getUserNameList(ids);
+        console.log("User data:", responseUser.data);        
+        // Устанавливаем имена, если пользователи найдены
+        const userCreate = responseUser.data['users'].find(usr => usr.id === response.data["IdCreate"]);
+        const userChange = responseUser.data['users'].find(usr => usr.id === response.data["IdChange"]);
+        setNameUserCreate(userCreate ? userCreate.username : 'None');
+        setNameUserChange(userChange ? userChange.username : 'None');
+      };
     };
     fetchCalculation();
   }, [id, usrData]);
@@ -129,11 +144,13 @@ const CalculationDetail = () => {
                   <summary>Детали компонента</summary>
                   <strong>Id: </strong><small id="calcId">{calculation.id}</small><br />
                   <strong>Прибор: </strong>{calculation.Device}<br />
-                  <strong>Метод: </strong>{calculation.SolutionBasic}<br />
+                  <strong>Метод: </strong>{calculation.Method}<br />
                   <strong>Базовый раствор: </strong>{calculation.BasicSolution}<br />
                   <strong>Рабочий раствор: </strong>{calculation.SolutionWorking}<br />
                   <strong>Длина волны: </strong>{calculation.Walvelength}<br />
                   <strong>Кювета: </strong>{calculation.UpLimitConcSubstance}<br />
+                  <strong>Создал: </strong>{nameUserCreate !== 'None' ? nameUserCreate : calculation.IdCreate }<br />
+                  <strong>Последнее изменение: </strong>{nameUserChange !== 'None' ? nameUserChange : calculation.IdChange }<br />
                 </details>
               </div>
             </div>
@@ -285,7 +302,7 @@ const CalculationDetail = () => {
                     {uncertainty.value !== -9999.0 && (    
                       <div className='row'>
                         <div className='col col-auto border border-2 border-info rounded'>
-                          <details>
+                          <details open>
                             <summary>Неопределённость линейной градуировки</summary>
                             <strong>при значении вещества-{'>'}</strong>{uncertainty.valueSubstance.toFixed(1)}<br />
                             <strong>при количестве измерений-{'>'}</strong>{uncertainty.numberMeasure}<br />

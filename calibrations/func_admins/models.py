@@ -228,7 +228,8 @@ class ActionHistory(models.Model):
         null=True,
         blank=True
     )
-    
+    is_deleted = models.BooleanField(default=False, verbose_name='Удалено')
+
     class Meta:
         verbose_name = 'История действия'
         verbose_name_plural = 'История действий'

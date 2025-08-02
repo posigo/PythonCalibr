@@ -17,6 +17,7 @@ from rest_framework import viewsets, status, generics, serializers
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated, AllowAny, AND, OR
 from rest_framework.settings import api_settings
 from rest_framework_simplejwt.exceptions import TokenError 
@@ -549,6 +550,12 @@ class UserViewSet(viewsets.ModelViewSet):
                 request.user.is_superuser or                                # Суперпользователь может удалить любого.
                 (request.user.groups.filter(name='admins').exists() and     # Админ может удалять только обычных пользователей (users, extusers).
                     instance.groups.filter(name__in=['users', 'extusers']).exists())):
+            ActionHistory.objects.create(
+                user=request.user,
+                action_type='user_delete',
+                description=f"Пользователь {request.user.username} неимеет прав для удаления пользователя {instance.username}",
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
             return Response(
                 {'detail': 'У вас нет прав для удаления этого пользователя'},
                 status=status.HTTP_403_FORBIDDEN
@@ -556,6 +563,12 @@ class UserViewSet(viewsets.ModelViewSet):
         
         # Проверка прав для удаления пользователей admins
         if instance.groups.filter(name='admins').exists() and not request.user.is_superuser:
+            ActionHistory.objects.create(
+                user=request.user,
+                action_type='user_delete',
+                description=f"Пользователь {request.user.username} неимеет прав для удаления пользователей из группы admins ({instance.username})",
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
             return Response(
                 {'detail': 'Только superuser может удалять пользователей группы admins'},
                 status=status.HTTP_403_FORBIDDEN
@@ -598,6 +611,13 @@ class UserViewSet(viewsets.ModelViewSet):
             user = self.get_object()    # Может вызвать 404 если пользователь не существует            
 
             if not hasattr(user, 'profile'):
+                # Запись в историю о неудачной попытке
+                ActionHistory.objects.create(
+                    user=request.user,
+                    action_type='verification',
+                    description=f'Попытка подтверждения пользователя {user.username}: профиль не найден',
+                    ip_address=request.META.get('REMOTE_ADDR')           
+                )
                 return Response(
                     {'detail': 'Профиль пользователя не найден'},
                     status=status.HTTP_400_BAD_REQUEST
@@ -606,9 +626,23 @@ class UserViewSet(viewsets.ModelViewSet):
             is_verified = user.profile.is_verified
 
             if (is_verified):
+                # Запись в историю о повторной попытке подтверждения
+                ActionHistory.objects.create(
+                    user=request.user,
+                    action_type='verification',
+                    description=f'Попытка повторного подтверждения уже подтвержденного пользователя {user.username}',
+                    ip_address=request.META.get('REMOTE_ADDR')
+                )                
                 return Response({'detail': 'Пользователь уже подтверждён'})
 
             if not request.data.get('group'):
+                # Запись в историю о неверных данных
+                ActionHistory.objects.create(
+                    user=request.user,
+                    action_type='verification',
+                    description=f'Попытка подтверждения пользователя {user.username} без указания группы',
+                    ip_address=request.META.get('REMOTE_ADDR')
+                )
                 return Response(
                     {'detail': 'Не указана группа для назначения'},
                     status=status.HTTP_400_BAD_REQUEST
@@ -616,6 +650,13 @@ class UserViewSet(viewsets.ModelViewSet):
 
             VALID_GROUPS = {'admins', 'users', 'extusers'}
             if request.data.get('group') not in VALID_GROUPS:
+                # Запись в историю о недопустимой группе
+                ActionHistory.objects.create(
+                    user=request.user,
+                    action_type='verification',
+                    description=f'Попытка назначения недопустимой группы {request.data.get("group")} пользователю {user.username}',
+                    ip_address=request.META.get('REMOTE_ADDR')
+                )
                 return Response(
                     {'detail': f'Недопустимая группа. Допустимые значения: {", ".join(VALID_GROUPS)}'},
                     status=status.HTTP_400_BAD_REQUEST
@@ -627,7 +668,15 @@ class UserViewSet(viewsets.ModelViewSet):
                     new_group_name=request.data.get('group'),
                     request_user=request.user
                 )
-
+                # дублирование
+                # Запись в историю об успешном подтверждении
+                # ActionHistory.objects.create(
+                #     user=request.user,
+                #     action_type='verification',
+                #     description=f'Успешное подтверждение пользователя {user.username} и назначение группы {result["group"].name}',
+                #     ip_address=request.META.get('REMOTE_ADDR')           
+                # )
+                
                 # # Помечаем связанные уведомления как неактивные
                 # Notification.objects.filter(
                 #     notification_type='registration',
@@ -645,14 +694,49 @@ class UserViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_200_OK
                 )
         except User.DoesNotExist:
+            # Запись в историю о попытке работы с несуществующим пользователем
+            ActionHistory.objects.create(
+                user=request.user,
+                action_type='verification',
+                description=f'Попытка подтверждения несуществующего пользователя с ID {pk}',
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
             return Response({'detail': 'Пользователь не найден'}, status=status.HTTP_404_NOT_FOUND)        
         except Group.DoesNotExist:
+            # Запись в историю о несуществующей группе
+            ActionHistory.objects.create(
+                user=request.user,
+                action_type='verification',
+                description=f'Попытка назначения несуществующей группы пользователю {user.username if "user" in locals() else "unknown"}',
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
             return Response({'detail': 'Указанная группа не существует'}, status=status.HTTP_400_BAD_REQUEST)
         except ValueError as e:
+            # Запись в историю об ошибке значения
+            ActionHistory.objects.create(
+                user=request.user,
+                action_type='verification',
+                description=f'Ошибка значения при подтверждении пользователя: {str(e)}',
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except PermissionError as e:
+            # Запись в историю об ошибке прав
+            ActionHistory.objects.create(
+                user=request.user,
+                action_type='verification',
+                description=f'Отказ в доступе при подтверждении пользователя: {str(e)}',
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
             return Response({'detail': str(e)}, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
+            # Запись в историю о внутренней ошибке
+            ActionHistory.objects.create(
+                user=request.user,
+                action_type='verification',
+                description=f'Внутренняя ошибка при подтверждении пользователя: {str(e)}',
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
             logger.error(f"Ошибка при назначении группы: {str(e)}", exc_info=True)
             return Response(
                 {'detail': 'Внутренняя ошибка сервера'},
@@ -693,6 +777,12 @@ class UserViewSet(viewsets.ModelViewSet):
         # print(user_group)
         # print(request.data.get('new_group'))
         if user_group == request.data.get('new_group'):
+            ActionHistory.objects.create(
+                user=request.user,
+                action_type='group_change',
+                description=f'назначаемая группа есть у пользователя {user.username}',
+                ip_address=request.META.get('REMOTE_ADDR')           
+            )
             return Response(
                 {
                     'detail':  f'назначаемая группа есть у пользователя {user.username}'
@@ -700,13 +790,20 @@ class UserViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_200_OK
             )
 
-        try:
+        try:            
             result = GroupService.assign_group_to_user(
                 user=user,
                 new_group_name=request.data.get('new_group'),
                 request_user=request.user
             )
-            
+            # дублирование
+            # Запись в историю об успешной смене группы
+            # ActionHistory.objects.create(
+            #     user=request.user,
+            #     action_type='group_change',
+            #     description=f'Успешное смена группы пользователя {user.username} на группу {result["group"].name}',
+            #     ip_address=request.META.get('REMOTE_ADDR')           
+            # )
             return Response(
                 {
                     'detail': f'Группа пользователя {user.username} изменена на {result["group"].name}',
@@ -717,8 +814,20 @@ class UserViewSet(viewsets.ModelViewSet):
             )
             
         except ValueError as e:
+            ActionHistory.objects.create(
+                user=request.user,
+                action_type='group_change',
+                description=f'Внутренняя ошибка при смене группы пользователя: {str(e)}',
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except PermissionError as e:
+            ActionHistory.objects.create(
+                user=request.user,
+                action_type='group_change',
+                description=f'Отказ в доступе при смене группы пользователя: {str(e)}',
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
             return Response({'detail': str(e)}, status=status.HTTP_403_FORBIDDEN)
 
 
@@ -1397,7 +1506,13 @@ class NotificationViewSet(viewsets.ModelViewSet):
             is_active=True,
             is_new=True
         )
-        
+        # Запись в историю о создании уведомления
+        ActionHistory.objects.create(
+            user=self.request.user,
+            action_type='notification_sent',
+            description=f"Пользователь {self.request.user.username} отправил уведомление пользователю {notification.recipient.username}",
+            ip_address=self.request.META.get('REMOTE_ADDR')
+        )
         # Для групповых уведомлений создаем копии для каждого пользователя
         if notification.group_recipient:
             for user in notification.group_recipient.user_set.all():
@@ -1414,6 +1529,13 @@ class NotificationViewSet(viewsets.ModelViewSet):
                         is_active=True,
                         is_new=True
                     )
+            # Запись в историю для каждого группового уведомления
+            ActionHistory.objects.create(
+                user=self.request.user,
+                action_type='notification_sent',
+                description=f"Пользователь {self.request.user.username} отправил групповое уведомление (группа {notification.group_recipient.name}) пользователю {user.username}",
+                ip_address=self.request.META.get('REMOTE_ADDR')
+            )
             notification.delete()  # Удаляем оригинальное групповое уведомление
     #-
     def perform_update(self, serializer):
@@ -1458,7 +1580,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
         if not (request.user.is_superuser or 
                 notification.recipient == request.user or
                 (notification.group_recipient and 
-                 request.user in notification.group_recipient.user_set.all())):
+                request.user in notification.group_recipient.user_set.all())):
             return Response(
                 {'detail': 'У вас нет прав для просмотра этого уведомления'},
                 status=status.HTTP_403_FORBIDDEN
@@ -1472,38 +1594,260 @@ class NotificationViewSet(viewsets.ModelViewSet):
             notification_profile.is_read = True
             notification_profile.is_active = False
             notification_profile.is_new = False
-            notification_profile.save()        
+            notification_profile.save()      
+            
+            # # Запись в историю о прочтении уведомления
+            # description = f"Пользователь {request.user.username} прочитал {notification.get_notification_type_display()} уведомление от {notification.sender.username if notification.sender else 'системы'}",
+            # if notification.sender is None:
+            #     description = f"Системное уведомление было прочитано пользователем {request.user.username}"
+            # if notification.group_recipient:
+            #     description = f"Пользователь {request.user.username} прочитал групповое уведомление (группа {notification.group_recipient.name})"
+            # ActionHistory.objects.create(
+            #     user=request.user,
+            #     action_type='notification_read',
+            #     description=description, 
+            #     ip_address=request.META.get('REMOTE_ADDR')
+            # )
+              
             print(notification.notification_profile.is_read)
             serializer = self.get_serializer(notification)
             print(serializer.data['id'])
             return Response(serializer.data)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+class ActionHistoryPagination(PageNumberPagination):
+    """
+    Вспомогательный класс для пагинации
+    Args:
+        PageNumberPagination (_type_): _description_
+    """
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 class ActionHistoryViewSet(viewsets.ModelViewSet):
     """
-    ViewSet для просмотра истории действий
+    ViewSet для просмотра и удаления истории действий (только суперпользователь)
     """
+    queryset = ActionHistory.objects.all()
     serializer_class = ActionHistorySerializer
-    permission_classes = [IsAuthenticated, CanViewHistory]
-    
+    permission_classes = [IsSuperUser]
+    pagination_class = ActionHistoryPagination    
+    http_method_names = ['get', 'delete', 'patch']  # Запрещаем put, post
+      
     def get_queryset(self):
         user = self.request.user
-        if not user.is_authenticated:
+        if not user.is_authenticated or not user.is_superuser:        
             return ActionHistory.objects.none()
-        if user.is_superuser:
-            return ActionHistory.objects.all()
-        elif user.groups.filter(name='admins').exists():
-            return ActionHistory.objects.filter(
-                Q(user__groups__name='users') | 
-                Q(user__groups__name='extusers') |
-                Q(user=user)
-            ).distinct()
-        return ActionHistory.objects.filter(user=user)
+
+        # Начинаем с неудалённых записей
+        queryset = ActionHistory.objects.all()  
+
+        # Фильтры
+        action_type = self.request.query_params.get('action_type')
+        username = self.request.query_params.get('user')
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
+        is_deleted = self.request.query_params.get('is_deleted')
+
+        if action_type:
+            queryset = queryset.filter(action_type=action_type)
+        if username:
+            queryset = queryset.filter(user__username__icontains=username)
+        if start_date:
+            queryset = queryset.filter(action_date__date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(action_date__date__lte=end_date)
+        if is_deleted is not None:
+            queryset = queryset.filter(is_deleted=is_deleted.lower() == 'true')
+
+        return queryset.order_by('-action_date')
+
+    @action(detail=False, methods=['get'], url_path='active')    
+    def active_entries(self, request):    
+        """
+        Получить все активные записи (is_deleted=False)
+        """
+        queryset = self.get_queryset().filter(is_deleted=False)
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='deleted')
+    def deleted_entries(self, request):
+        """
+        Получить все удаленные записи (is_deleted=True)
+        """
+        queryset = self.get_queryset().filter(is_deleted=True)
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
     
-    def get_permissions(self):
-        if self.action in ['destroy', 'update', 'partial_update']:
-            return [IsAuthenticated(), IsSuperUser()]
-        return super().get_permissions()
+    @action(detail=True, methods=['delete'], url_path='hard-delete')
+    def hard_delete(self, request, pk=None):
+        """
+        Физическое удаление записи (только для is_deleted=True)
+        """
+        instance = self.get_object()
+        if not instance.is_deleted:
+            return Response(
+                {"detail":"Можно удалять только записи, помеченные как удаленные."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    @action(detail=True, methods=['patch'], url_path='restore')
+    def restore(self, request, pk=None):
+        """
+        Восстановление записи (установка is_deleted=False)
+        """
+        instance = self.get_object()    
+        if not instance.is_deleted:
+            return Response(
+                {"detail": "Запись не была удалена."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        instance.is_deleted = False
+        instance.save()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+    
+    def destroy(self, request, *args, **kwargs):
+        """
+        Мягкое удаление (установка is_deleted=True)
+        """
+        instance = self.get_object()
+        if instance.is_deleted:
+            return Response(
+                {"detail": "Запись уже удалена."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        instance.is_deleted = True
+        instance.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+                
+        
+    
+    
+    
+    
+    
+    
+    
+    
+
+    # def get_serializer(self, *args, **kwargs):
+    #     # Разрешаем partial update при patch
+    #     # kwargs['partial'] = True  # нет смысла так как update запрещён. возможно в будущем пригодится
+    #     return super().get_serializer(*args, **kwargs)
+    
+    # def update(self, request, *args, **kwargs):
+    #     # Запрещаем редактирование
+    #     raise PermissionDenied("Редактирование истории действий запрещено.")
+    
+    # def partial_update(self, request, *args, **kwargs):
+    #     # Запрещаем частичное редактирование
+    #     raise PermissionDenied("Изменение истории действий запрещено.")
+    
+    # def create(self, request, *args, **kwargs):
+    #     # Запрещаем создание
+    #     raise PermissionDenied("Создание записей истории запрещено.")
+    
+    @action(detail=True, methods=['delete'])
+    def purge(self, request, pk=None):
+        """
+        Hard delete — физическое удаление (только для is_deleted=True)
+        """
+        instance = self.get_object()
+        if not instance.is_deleted:
+            raise PermissionDenied("Можно удалять только помеченные записи.")
+        self.perform_destroy(instance)
+        return Response(status=204)
+    
+    def destroy(self, request, *args, **kwargs):
+        """
+        Soft delete — помечаем как удалённое
+        """
+        instance = self.get_object()
+        instance.is_deleted = True
+        instance.save()
+        return Response(status=204)
+
+    def _get_filtered_queryset(self, is_deleted):
+        """Общий метод для фильтрации и пагинации"""
+        queryset = ActionHistory.objects.filter(is_deleted=is_deleted)
+    
+        # Применяем фильтры
+        action_type = self.request.query_params.get('action_type')
+        if action_type:
+            queryset = queryset.filter(action_type=action_type)
+    
+        username = self.request.query_params.get('user')
+        if username:
+            queryset = queryset.filter(user__username__icontains=username)
+    
+        start_date = self.request.query_params.get('start_date')
+        if start_date:
+            queryset = queryset.filter(action_date__date__gte=start_date)
+
+        end_date = self.request.query_params.get('end_date')
+        if end_date:
+            queryset = queryset.filter(action_date__date__lte=end_date)
+
+        queryset = queryset.order_by('-action_date')
+        page = self.paginate_queryset(queryset)
+    
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+    
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='deleted-not', url_name='deleted_not') 
+    def deleted_not(self, request):
+        """
+        Возвращает пагинированный список НЕудалённых записей (is_deleted=False)
+        с поддержкой фильтрации
+        """
+        return self._get_filtered_queryset(is_deleted=False)
+
+    @action(detail=False, methods=['get'], url_path='deleted-yes', url_name='deleted_yes')
+    def deleted_yes(self, request):
+        """
+        Возвращает пагинированный список удалённых записей (is_deleted=True)
+        с поддержкой фильтрации
+        """
+        return self._get_filtered_queryset(is_deleted=True)
+
+    @action(detail=True, methods=['patch', 'post', 'put'], url_path='restore', url_name='restore')
+    def restore(self, request, pk=None):
+        """
+        востановление удалённой записи
+        меняет is_deleted с True на False.
+        """
+        instance = self.get_object()
+        if not instance.is_deleted:            
+            #raise ValidationError("Эта запись не была помечена на удаление")
+            return Response(
+                {"detail": "Эта запись не была помечена на удаление."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        instance.is_deleted = False
+        instance.save()
+
+        serializers = self.get_serializer(instance)
+        return Response(serializers.data)
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     """

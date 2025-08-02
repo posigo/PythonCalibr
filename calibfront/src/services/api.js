@@ -15,7 +15,7 @@ const api = axios.create({
 // Добавляем интерцептор для токена
 api.interceptors.request.use(config => {
   const token = localStorage.getItem('access_token');
-  const publicEndpoints = ['/token/', '/auth/register/'];
+  const publicEndpoints = ['/token/', '/auth/register/', '/docum_user/download-security-policy/'];
   if (token && !publicEndpoints.includes(config.url)) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -66,8 +66,16 @@ export const getNotificationByRecepient = () => api.get('/notifications/by_recip
 export const getNotificationIdMark = (id) => api.get(`/notifications/${id}/mark_as_read/`);
 
 // История действий
-export const getActionHistory = () => api.get('/history/');
-export const getActionHistoryItem = (id) => api.get(`/history/${id}/`);
+export const getActionHistory = (params = {}) => api.get('/history/', { params });
+export const getActiveActionHistory = (params = {}) => api.get('/action-history/active/', { params });
+export const getDeletedActionHistory = (params = {}) => api.get('/action-history/deleted/', { params });
+export const getActionHistoryById = (id) => api.get(`/action-history/${id}/`);
+// Мягкое удаление (помечает is_deleted=true)
+export const softDeleteActionHistory = (id) => api.delete(`/action-history/${id}/`);
+// Физическое удаление записи (только для is_deleted=true)
+export const hardDeleteActionHistory = (id) => api.delete(`/action-history/${id}/hard-delete/`);
+// Восстановление записи (устанавливает is_deleted=false)
+export const restoreActionHistory = (id) => api.patch(`/action-history/${id}/restore/`);
 
 export default api;
 
@@ -168,3 +176,13 @@ export const deleteCalcSolution = async (solutionId) => {
     }
 };
 
+export const getHelpCalibrationPDF = () => 
+  api.get('/docum-user/download-help-pdf/', {
+    responseType: 'blob'
+  });
+
+export const getSecurityPolicy = () => 
+  api.get('/docum-user/download-security-policy/');
+
+export const getAsutpInfo = () => 
+  api.get('/docum-user/download-asutp/');
